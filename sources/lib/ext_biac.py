@@ -491,8 +491,9 @@ def getTechnicsKPIByPriv(entities, privileges = [], kpi='600'):
     
     ret_technics = {}
     
+    
+
     for priv in privileges:
-        
         for rec in entities:
             if 'kpi'+kpi+'_privileges' in rec:                
                 for rec_priv in rec['kpi'+kpi+'_privileges']:
@@ -507,6 +508,8 @@ def getTechnicsKPIByPriv(entities, privileges = [], kpi='600'):
             
             elif 'privileges' in rec:
                 for rec_priv in rec['privileges']:
+
+
                     if priv == 'admin' or  rec_priv == priv:
                         if 'kpi'+kpi+'_technics' in rec:
 
@@ -518,7 +521,10 @@ def getTechnicsKPIByPriv(entities, privileges = [], kpi='600'):
     
     for i in ret_technics:
         ret_technics[i] = list(set(ret_technics[i]))
-                
+
+
+    logger.info("RESULTS_"*100)
+    logger.info(ret_technics)
     return ret_technics
 
 def put_default_values_kpi600_monthly(es, entities, month):
