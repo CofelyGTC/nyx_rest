@@ -33,7 +33,15 @@ def config(api,conn,es,redis,token_required):
         @api.doc(description="Get kpi entity model.",params={'token': 'A valid token'})
         def get(self, kpi, user=None):
             logger.info("biac - get kpi"+kpi+" model")
-            kpi_model = retrieve_kpi_entities_model(es, user['privileges'], kpi=kpi)
+            logger.info(user)
+
+            kpi_model = {}
+            if kpi == '304': 
+                kpi_model = determine_model_304(user)
+            elif kpi == '600': 
+                kpi_model = determine_model_600(user)
+            else:
+                kpi_model = retrieve_kpi_entities_model(es, user['privileges'], kpi=kpi)
             return {'error':"",'status':'ok', 'data': json.dumps(kpi_model)}
     
     @api.route('/api/v1/biac/kpi600_monthly/<string:lot>/<string:tec>/<string:date>')
@@ -161,7 +169,14 @@ def update_kpi101_monthly(es, month, number_of_call_1=-1, number_of_call_2=-1, n
     
 
 
-    df     = genericIntervalSearch(es,"biac_kpi101_call",query='*',start=start_dt, end=end_dt, timestampfield="datetime")
+    #df     = genericIntervalSearch(es,"biac_kpi101_call",query='*',start=start_dt, end=end_dt, timestampfield="datetime")
+
+
+    df     = es_helper.elastic_to_dataframe(es,index="biac_kpi101_call*"
+                                            ,query='*'
+                                            ,start=start_dt
+                                            ,end=end_dt
+                                            ,timestampfield='datetime')
 
     df_group = None
     if len(df) > 0:
@@ -196,7 +211,14 @@ def update_kpi101_monthly(es, month, number_of_call_1=-1, number_of_call_2=-1, n
 
     df_month = None
     if number_of_call_1 == -1 or number_of_call_2 == -1 or number_of_call_3 == -1:
-        df_month     = genericIntervalSearch(es,"biac_kpi101_monthly",query='*',start=start_dt, end=end_dt, timestampfield="datetime")
+        # df_month     = genericIntervalSearch(es,"biac_kpi101_monthly",query='*',start=start_dt, end=end_dt, timestampfield="datetime")
+
+        df_month     = es_helper.elastic_to_dataframe(es,index="biac_kpi101_monthly*"
+                                                        ,query='*'
+                                                        ,start=start_dt
+                                                        ,end=end_dt
+                                                        ,timestampfield='datetime')
+        
 
     if number_of_call_1 == -1:
         try:
@@ -296,7 +318,7 @@ def get_kpi304_values(es, lot, tec, date):
         del default_df['dayofweek']
 
         
-        dataframe_to_elastic(es, default_df)
+        es_helper.dataframe_to_elastic(es, default_df)
         default_df['_timestamp']=default_df['_timestamp'].dt.date.astype(str)
 
         logger.info('query'*100)
@@ -402,7 +424,12 @@ def update_month_kpi104(es, month):
     logger.info(start_dt)
     logger.info(end_dt)
                         
-    df     = genericIntervalSearch(es,"biac_kpi104_check*",query='*',start=start_dt, end=end_dt)
+    # df     = genericIntervalSearch(es,"biac_kpi104_check*",query='*',start=start_dt, end=end_dt)
+
+    df     = es_helper.elastic_to_dataframe(es,index="biac_kpi104_check*"
+                                            ,query='*'
+                                            ,start=start_dt
+                                            ,end=end_dt)
 
 
     logger.info('res len %d' % len(df))
@@ -528,7 +555,8 @@ def getTechnicsKPIByPriv(entities, privileges = [], kpi='600'):
     return ret_technics
 
 def put_default_values_kpi600_monthly(es, entities, month):
-    entities_model = getTechnicsKPIByPriv(entities, ['admin'], kpi="600")
+    # entities_model = getTechnicsKPIByPriv(entities, ['admin'], kpi="600")
+    entities_model = determine_model_600()
     arr = []
 
     for i in entities_model:
@@ -651,92 +679,6 @@ def get_kpi600_value(es, lot, kpi600_technic, month):
     return ret   
 
 
-##########################################################
-#                       GENERIC
-##########################################################
-
-def genericIntervalSearch(es,index,query="*",start=None,end=None,doctype="doc",sort=None,timestampfield="@timestamp"):
-    logger = logging.getLogger()  
-    array=[]
-    recs=[]
-    
-    try:        
-        finalquery={
-            "query": {
-              "bool": {
-                "must": [
-                  {
-                    "query_string": {
-                      "query": query,
-                      "analyze_wildcard": True
-                    }
-                  }
-                ]
-              }
-            }
-        }
-        if start !=None:
-            finalquery["query"]["bool"]["must"].append({
-                "range": {
-                  
-                }
-              }); 
-            finalquery["query"]["bool"]["must"][len(finalquery["query"]["bool"]["must"])-1]["range"][timestampfield]={
-                    "gte": int(start.timestamp())*1000,
-                    "lte": int(end.timestamp())*1000,
-                    "format": "epoch_millis"
-                  }
-            
-
-        if sort !=None:
-            finalquery["sort"]=sort
-        
-        logger.info(finalquery)
-
-        res=es.search(index=index
-        ,doc_type=doctype
-        ,size=10000        
-        ,scroll = '2m'
-        ,body=finalquery
-        )
-
-        scroll_size = res['hits']['total']        
-        sid = 0
-        if scroll_size > 0:
-            sid = res['_scroll_id']
-
-        array=[]
-        for res2 in res["hits"]["hits"]:
-            res2["_source"]["_id"]=res2["_id"]
-            res2["_source"]["_index"]=res2["_index"]
-             
-            array.append(res2["_source"])
-
-        recs=len(res['hits']['hits'])
-
-        while (scroll_size > 0):
-            logger.info ("Scrolling..."+str(scroll_size))
-            res = es.scroll(scroll_id = sid, scroll = '2m')
-            # Update the scroll ID
-            sid = res['_scroll_id']
-            # Get the number of results that we returned in the last scroll
-            scroll_size = len(res['hits']['hits'])
-            logger.info ("scroll size: " + str(scroll_size))
-            logger.info ("Next page:"+str(len(res['hits']['hits'])))
-            recs+=len(res['hits']['hits'])
-
-            for res2 in res["hits"]["hits"]:
-                res2["_source"]["_id"]=res2["_id"]
-                res2["_source"]["_index"]=res2["_index"]
-                
-                array.append(res2["_source"])
-            
-
-    except Exception as e:
-        logger.error("Unable to load data")
-        logger.error(e)
-    df=pd.DataFrame(array)
-    return df
 
 def mkDateTime(dateString,strFormat="%Y-%m-%d"):
     # Expects "YYYY-MM-DD" string
@@ -780,102 +722,125 @@ def add_months(sourcedate, months):
 
 
 
+def determine_model_304(user=None):
+
+    model = {}
+
+    if user is None or user.get('filters') is None or user.get('filters') == []:
+        model = {
+            1: ["BACHEA"], 
+            2: ["SANI", "ELEC", "FIRE", "HVAC"], 
+            3: ["BACEXT"], 
+            4: ["BACDNB"]
+        }
+
+    else:
+
+        filters = user.get('filters')
+
+        if 'LOT1' in filters:
+            model[1] = ['BACHEA']
+
+            
+        model[2] = []
+        if 'LOT2_BACFIR_GONDELS' in filters:
+            model[2].append('FIRE')
+        if 'LOT2_BACFIR_ACCESS' in filters:
+            model[2].append('FIRE')
+        if 'LOT2_BACFIR_FIRE' in filters:
+            model[2].append('FIRE')
+        if 'LOT2_BACSAN_SANI' in filters:
+            model[2].append('SANI')
+        if 'LOT2_BACSAN_HVACPA' in filters:
+            model[2].append('SANI')
+        if 'LOT2_BACELE' in filters:
+            model[2].append('ELEC')
+        if 'LOT2_BACHVA' in filters:
+            model[2].append('HVAC')
+        
+        
+        if 'LOT2_BACSAN' in filters:
+            model[2] = ['SANI']
+            
+        if 'LOT2_BACFIR' in filters:
+            model[2] = ['FIRE']
+        
+        
+        if 'LOT2' in filters:
+            model[2] = ["SANI", "ELEC", "FIRE", "HVAC"]
+            
+        model[2] = list(dict.fromkeys(model[2]))
+        if model[2] == []:
+            del model[2]
 
 
-def dataframe_to_elastic(es, df):
-    """Converts a dataframe to an elastic collection to.
-    The dataframe must have an "_index" column used to select the target index.
-    Optionally an "_id" column can be used to specify the id of the record.
-    Optionally an "_timestamp" column can be used to specify a "@timestamp column.
+        if 'LOT3' in filters:
+            model[3] = ['BACEXT']
 
-    Parameters:
-    es -- The elastic connection object
-    df -- The dataframe
-    """
-
-    logger = logging.getLogger(__name__)
-
-    logger.info("LOADING DATA FRAME")
-    logger.info("==================")
-    starttime = time.time()
-
-    if len([item for item, count in collections.Counter(df.columns).items() if count > 1]) > 0:
-        logger.error("NNOOOOOOOOBBBB DUPLICATE COLUMN FOUND "*10)
-
-    reserrors = []
-
-    try:
-        if len(df) == 0:
-            logger.info('dataframe empty')
-        else:
-            logger.info("Loading data frame. Rows:" +
-                        str(df.shape[1]) + " Cols:" + str(df.shape[0]))
-            logger.info("Loading data frame")
-
-        bulkbody = ""
-
-        for index, row in df.iterrows():
-            action = {}
-
-            action["index"] = {"_index": row["_index"],
-                               "_type": "doc"}
-            if "_id" in row:
-                action["index"]["_id"] = row["_id"]
-
-            bulkbody += json.dumps(action, cls=DateTimeEncoder) + "\r\n"
-            obj = {}
-
-            for i in df.columns:
-
-                if((i != "_index") and (i != "_timestamp")and (i != "_id")):
-                    if not (type(row[i]) == str and row[i] == 'NaT') and \
-                       not (type(row[i]) == pd._libs.tslibs.nattype.NaTType):
-                        obj[i] = row[i]
-                elif(i == "_timestamp"):
-                    if type(row[i]) == int:
-                        obj["@timestamp"] = int(row[i])
-                    else:
-                        obj["@timestamp"] = int(row[i].timestamp()*1000)
-
-            bulkbody += json.dumps(obj, cls=DateTimeEncoder) + "\r\n"
-            #print(json.dumps(obj, cls=DateTimeEncoder))
-
-            if len(bulkbody) > 512000:
-                logger.info("BULK READY:" + str(len(bulkbody)))
-                # print(bulkbody)
-                bulkres = es.bulk(bulkbody, request_timeout=30)
-                logger.info("BULK DONE")
-                currec = 0
-                bulkbody = ""
-
-                if(not(bulkres["errors"])):
-                    logger.info("BULK done without errors.")
-                else:
-                    for item in bulkres["items"]:
-                        if "error" in item["index"]:
-                            # logger.info(item["index"]["error"])
-                            reserrors.append(
-                                {"error": item["index"]["error"], "id": item["index"]["_id"]})
-
-        if len(bulkbody) > 0:
-            logger.info("BULK READY FINAL:" + str(len(bulkbody)))
-            bulkres = es.bulk(bulkbody)
-            # print(bulkbody)
-            logger.info("BULK DONE FINAL")
-
-            if(not(bulkres["errors"])):
-                logger.info("BULK done without errors.")
-            else:
-                for item in bulkres["items"]:
-                    if "error" in item["index"]:
-                        # logger.info(item["index"]["error"])
-                        reserrors.append(
-                            {"error": item["index"]["error"], "id": item["index"]["_id"]})
-
-        if len(reserrors) > 0:
-            logger.info(reserrors)
-
-    except:
-        logger.error("Unable to store data in elastic", exc_info=True)
+        if 'LOT4' in filters:
+            model[4] = ['BACDNB']
 
 
+    return model
+
+
+
+def determine_model_600(user=None):
+
+    model = {}
+
+    if user is None or user.get('filters') is None or user.get('filters') == []:
+        model = {
+            1: ['HVAC'], 
+            2: ['Gondels', 'Acces', 'Fire', 'Sanitaire', 'HVAC PA/TO', 'Elektriciteit', 'HVAC NT/PB/OT/CON'], 
+            3: ['Elektriciteit', 'Fire', 'HVAC', 'Sanitaire/Acces'], 
+            4: ['Elektriciteit'],
+        }
+    else:
+
+        filters = user.get('filters')
+
+        if 'LOT1' in filters:
+            model[1] = ['HVAC']
+
+            
+        model[2] = []
+        if 'LOT2_BACFIR_GONDELS' in filters:
+            model[2].append('Gondels')
+        if 'LOT2_BACFIR_ACCESS' in filters:
+            model[2].append('Acces')
+        if 'LOT2_BACFIR_FIRE' in filters:
+            model[2].append('Fire')
+        if 'LOT2_BACSAN_SANI' in filters:
+            model[2].append('Sanitaire')
+        if 'LOT2_BACSAN_HVACPA' in filters:
+            model[2].append('HVAC PA/TO')
+        if 'LOT2_BACELE' in filters:
+            model[2].append('Elektriciteit')
+        if 'LOT2_BACHVA' in filters:
+            model[2].append('HVAC NT/PB/OT/CON')
+        
+        
+        if 'LOT2_BACSAN' in filters:
+            model[2] = ['Sanitaire', 'HVAC PA/TO']
+            
+        if 'LOT2_BACFIR' in filters:
+            model[2] = ['Gondels', 'Acces', 'Fire']
+        
+        
+        if 'LOT2' in filters:
+            model[2] = ['Gondels', 'Acces', 'Fire', 'Sanitaire', 'HVAC PA/TO', 'Elektriciteit', 'HVAC NT/PB/OT/CON']
+
+        model[2] = list(dict.fromkeys(model[2]))  
+        if model[2] == []:
+            del model[2]
+
+
+        if 'LOT3' in filters:
+            model[3] = ['Elektriciteit', 'Fire', 'HVAC', 'Sanitaire/Acces']
+
+        if 'LOT4' in filters:
+            model[4] = ['Elektriciteit']
+
+
+    return model
