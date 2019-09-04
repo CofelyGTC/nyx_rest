@@ -2,6 +2,7 @@ import logging
 from flask_restplus import Namespace,Api, Resource, fields
 from flask import Flask, jsonify, request
 import json
+import os
 
 
 print("***>"*100)
@@ -17,9 +18,10 @@ def config(api,conn,es,redis,token_required):
     @api.doc(description="Take Sigfox data from Backend Sigfox.",params={'token':'A valid token', 'id':'Sigfox device ID', 'time':'A timestamp', 'Data':'The Sigfox Data', 'Seq':'The seq Number'})
     class sigfox_data(Resource):
         def get(self, user=None):
+            tokenRest = os.environ['token']
             logger.info('New Sigfox Data By Get Request')
             token=request.args.get('token')
-            if token == 'oZiyUti8W1IPyY2gxCX8VbooT6vwZDA3':
+            if token == tokenRest:
                 print(conn)
                 device =request.args.get('id')
                 timets =request.args.get('time')
@@ -32,10 +34,11 @@ def config(api,conn,es,redis,token_required):
                 conn.send_message('/queue/GTC_IMPORT_SIGFOX', json.dumps(mess))
         
         def post(self, user=None):
+            tokenRest = os.environ['token']
             logger.info('New Sigfox Data By Post Request')
             req= json.loads(request.data.decode('utf-8'))
             token=req['token']
-            if token == 'oZiyUti8W1IPyY2gxCX8VbooT6vwZDA3':
+            if token == tokenRest:
                 device =req['id']
                 timets =req['time']
                 data =req['data']
