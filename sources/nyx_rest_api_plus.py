@@ -36,7 +36,7 @@ from logstash_async.handler import AsynchronousLogstashHandler
 from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
-VERSION="2.0.9"
+VERSION="2.0.10"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 WELCOME=os.environ["WELCOMEMESSAGE"]
