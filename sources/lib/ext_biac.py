@@ -11,6 +11,8 @@ import pandas as pd
 import elasticsearch
 import dateutil.parser
 
+import traceback
+
 from datetime import date
 from datetime import datetime
 from datetime import timedelta
@@ -432,9 +434,29 @@ def update_month_kpi104(es, month):
                                             ,end=end_dt)
 
 
-    logger.info('res len %d' % len(df))
 
+    
+    logger.info('res len %d' % len(df))
     max_dt = start_dt.astimezone(local_timezone)
+
+    obj_past = None
+    try:
+        obj_past = es.get(index="biac_kpi104_monthly", doc_type='doc', id=start_dt.astimezone(local_timezone))['_source']
+    except elasticsearch.NotFoundError:
+        logger.error("Unable to retrive past data")
+        logger.error(error)
+
+        obj_past = {
+            '@timestamp'     : start_dt.astimezone(local_timezone),
+            'last_update'    : start_dt.astimezone(local_timezone),
+            'shift_number'   : 0,
+            'shift_presence' : 0,
+            'percentage'     : 100
+        }
+        es.index(index="biac_kpi104_monthly", doc_type='doc', id=obj_past['@timestamp'], body=json.dumps(obj_past, cls=DateTimeEncoder))
+
+    logger.info(obj_past)
+
     shift_presence = 0
 
     if len(df)==0:
@@ -443,18 +465,28 @@ def update_month_kpi104(es, month):
 
     else:
         df['dt'] = pd.to_datetime(df['@timestamp'], unit='ms', utc=True)
-        
-        #max_dt = max(max_df_dt, last_update)
 
+
+        shift_number   = 0
+        shift_presence   = 0
+        percentage = 100
+        
         try:
             shift_presence = df[df['value']]['value'].count()
             max_dt = max(df[df['value']]['dt']).to_pydatetime().astimezone(local_timezone)
+            shift_number   = max_dt.day * 6
+            percentage = 0
         except: 
             logger.info('shift_presence to 0')
 
+            if obj_past['shift_number'] != 0:
+                shift_number   = 6
+                shift_presence   = 0
+                percentage = 0
+
+
         logger.info(max_dt)
             
-    shift_number   = max_dt.day * 6
     
     
     logger.info('shift_number   %d ' % shift_number)
@@ -465,7 +497,7 @@ def update_month_kpi104(es, month):
         'last_update'    : max_dt,
         'shift_number'   : shift_number,
         'shift_presence' : shift_presence,
-        'percentage'     : 0
+        'percentage'     : percentage
     }
     
     if shift_number != 0:
