@@ -871,6 +871,16 @@ def determine_model_600(user=None):
         if 'LOT3' in filters:
             model[3] = ['Elektriciteit', 'Fire', 'HVAC', 'Sanitaire/Acces']
 
+            if 'filters' in user:
+                if "KPI600-HIDE-LOT3HVAC" in user["filters"]:
+                    model[3].remove("HVAC")
+                if "KPI600-HIDE-LOT3ELEC" in user["filters"]:
+                    model[3].remove("Elektriciteit")
+                if "KPI600-HIDE-LOT3FIRE" in user["filters"]:
+                    model[3].remove("Fire")
+                if "KPI600-HIDE-LOT3SANI" in user["filters"]:
+                    model[3].remove("Sanitaire/Acces")                    
+
         if 'LOT4' in filters:
             model[4] = ['Elektriciteit']
 
