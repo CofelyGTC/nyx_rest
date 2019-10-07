@@ -31,22 +31,18 @@ from amqstompclient import amqstompclient
 from flask_restplus import Api, Resource, fields
 from flask import Flask, jsonify, request,Blueprint
 from logging.handlers import TimedRotatingFileHandler
-from common import loadData,applyPrivileges,kibanaData
+from common import loadData,applyPrivileges,kibanaData,getELKVersion
 from logstash_async.handler import AsynchronousLogstashHandler
 from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
-VERSION="2.0.12"
+VERSION="2.4.0"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 WELCOME=os.environ["WELCOMEMESSAGE"]
 ICON=os.environ["ICON"]
 
-# os.environ['TZ'] = 'Europe/Athens'
-# time.tzset()
-# time.strftime('%X %x %Z')
-# print(datetime.now())
-# print("datetime.now() "*30)
+elkversion=6
 
 indices={}
 indices_refresh_seconds=60
@@ -149,7 +145,6 @@ def check_pg():
             pass
 
 
-
 def get_postgres_connection():
     global pg_connection,pg_thread
     logger.info(">>> Create PG Connection")
@@ -231,11 +226,6 @@ def getUserFromToken(request):
 
     logger.error("Invalid Token:"+token)
     return None
-
-
-
-
-
 
 
 #---------------------------------------------------------------------------
@@ -327,7 +317,10 @@ def pushHistoryToELK(request,timespan,usr,token,error):
 @app.route('/api/v1/ui_css')
 def cssRest():    
     logger.info("CSS called")
-    res=es.get(index="nyx_config",id="nyx_css",doc_type="doc")    
+    if elkversion==7:
+        res=es.get(index="nyx_config",id="nyx_css")    
+    else:
+        res=es.get(index="nyx_config",id="nyx_css",doc_type="doc")    
     #header("Content-type: text/xml")
     return Response(res["_source"]["file"], mimetype='text/css')
      
@@ -406,7 +399,10 @@ class reloadConfig(Resource):
 
 def computeMenus(usr,token):
     refresh_translations()
-    res3=es.search(size=1000,index="nyx_app",doc_type="doc",body={"sort" : [{ "order" : "asc" }]})
+    if elkversion==7:
+        res3=es.search(size=1000,index="nyx_app",body={"sort" : [{ "order" : "asc" }]})
+    else:
+        res3=es.search(size=1000,index="nyx_app",doc_type="doc",body={"sort" : [{ "order" : "asc" }]})
     
     dict_dashboard=get_dict_dashboards(es)
 
@@ -440,7 +436,7 @@ def computeMenus(usr,token):
                 logger.warning('we have to update database !!!')
 
                 app_to_index = appl.copy()
-                del app_to_index['rec_id']
+                del app_to_index['rec_id']                
                 es.index(index=app['_index'], doc_type=app['_type'], id=app['_id'], body=app_to_index)
 
         if appl["category"] not in categories:
@@ -520,7 +516,10 @@ class loginRest(Resource):
             cleanlogin=data["login"].split(">")[0]
 
             try:
-                usr=es.get(index="nyx_user",doc_type="doc",id=cleanlogin)
+                if elkversion==7:
+                    usr=es.get(index="nyx_user",id=cleanlogin)
+                else:
+                    usr=es.get(index="nyx_user",doc_type="doc",id=cleanlogin)
             except:
                 usr=None
                 logger.info("Searching by login")
@@ -538,7 +537,10 @@ class loginRest(Resource):
                             }
                         }
                     }
-                users=es.search(index="nyx_user",doc_type="doc",body=body)
+                if elkversion==7:
+                    users=es.search(index="nyx_user",body=body)
+                else:
+                    users=es.search(index="nyx_user",doc_type="doc",body=body)
                 #logger.info(users)
                 if "hits" in users and "hits" in users["hits"] and len (users["hits"]["hits"])>0:
                     usr=users["hits"]["hits"][0]
@@ -570,7 +572,10 @@ class loginRest(Resource):
                 if ">" in data["login"] and "admin" in usr["_source"]["privileges"]:
                     otheruser=data["login"].split(">")[1]
                     try:
-                        usr=es.get(index="nyx_user",doc_type="doc",id=otheruser)
+                        if elkversion==7:
+                            usr=es.get(index="nyx_user",id=otheruser)
+                        else:
+                            usr=es.get(index="nyx_user",doc_type="doc",id=otheruser)
                     except:
                         usr=None
                         return jsonify({'error':"Unknown User"})
@@ -651,12 +656,18 @@ class reset_password(Resource):
         logger.info(">>> Reset password");
         req= json.loads(request.data.decode("utf-8"))  
         try:
-            usrdb=es.get(index="nyx_user",doc_type="doc",id=req["login"])
+            if elkversion==7:
+                usrdb=es.get(index="nyx_user",id=req["login"])
+            else:
+                usrdb=es.get(index="nyx_user",doc_type="doc",id=req["login"])
         except:
             return {"error":"usernotfound"}
             
         usrdb["_source"]["password"]=pbkdf2_sha256.hash(req["new_password"])
-        res=es.index(index="nyx_user",body=usrdb["_source"],doc_type="doc",id=req["login"])
+        if elkversion==7:
+            res=es.index(index="nyx_user",body=usrdb["_source"],id=req["login"])
+        else:
+            res=es.index(index="nyx_user",body=usrdb["_source"],doc_type="doc",id=req["login"])
 
         usrdb["_source"]["id"]=usrdb["_id"]
 
@@ -686,11 +697,17 @@ class change_password(Resource):
         req= json.loads(request.data.decode("utf-8"))  
         logger.info(req)
         logger.info(user)
-        usrdb=es.get(index="nyx_user",doc_type="doc",id=user["id"])
+        if elkversion==7:
+            usrdb=es.get(index="nyx_user",id=user["id"])
+        else:
+            usrdb=es.get(index="nyx_user",doc_type="doc",id=user["id"])
         if pbkdf2_sha256.verify(req["old_password"], usrdb["_source"]["password"]):
             
             usrdb["_source"]["password"]=pbkdf2_sha256.hash(req["new_password"])
-            res=es.index(index="nyx_user",body=usrdb["_source"],doc_type="doc",id=user["id"])
+            if elkversion==7:
+                res=es.index(index="nyx_user",body=usrdb["_source"],id=user["id"])
+            else:
+                res=es.index(index="nyx_user",body=usrdb["_source"],doc_type="doc",id=user["id"])
             logger.info(res)        
             return {"error":""}
         else:
@@ -789,8 +806,12 @@ class extLoadDataSource(Resource):
         end=request.args.get("end",None)
         logger.info("Data source called "+dsid+" start:"+str(start)+" end:"+str(end))
 
+        if elkversion==7:
+            ds=es.get(index="nyx_datasource",id=dsid)
+        else:
+            ds=es.get(index="nyx_datasource",doc_type="doc",id=dsid)
+            
 
-        ds=es.get(index="nyx_datasource",doc_type="doc",id=dsid)
         logger.info("QUERY TYPE# "*20)
         query=ds["_source"]["query"]
         querytype=ds["_source"].get("type","elasticsearch")
@@ -857,7 +878,6 @@ def kibanaLoad(user=None):
 
     logger.info("Full Key:"+"nyx_kib_msearch"+token)
     matchrequest=redisserver.get("nyx_kib_msearch"+token).decode('utf-8')
-    #matchrequest="{\"index\":\"docker_stats*\",\"ignore_unavailable\":true,\"preference\":1547384538374}\n{\"aggs\":{\"2\":{\"date_histogram\":{\"field\":\"@timestamp\",\"interval\":\"5m\",\"time_zone\":\"Europe/Berlin\",\"min_doc_count\":1},\"aggs\":{\"3\":{\"terms\":{\"field\":\"name\",\"size\":5,\"order\":{\"1\":\"desc\"}},\"aggs\":{\"1\":{\"max\":{\"field\":\"memory_stats.usage\"}}}}}}},\"size\":0,\"_source\":{\"excludes\":[]},\"stored_fields\":[\"*\"],\"script_fields\":{},\"docvalue_fields\":[{\"field\":\"@timestamp\",\"format\":\"date_time\"},{\"field\":\"preread\",\"format\":\"date_time\"},{\"field\":\"read\",\"format\":\"date_time\"}],\"query\":{\"bool\":{\"must\":[{\"match_all\":{}},{\"match_all\":{}},{\"range\":{\"@timestamp\":{\"gte\":1547370177415,\"lte\":1547384577415,\"format\":\"epoch_millis\"}}}],\"filter\":[],\"should\":[],\"must_not\":[]}},\"timeout\":\"30000ms\"}\n{\"index\":\"nyx_module_info*\",\"ignore_unavailable\":true,\"preference\":1547384538374}\n{\"aggs\":{\"2\":{\"terms\":{\"field\":\"module\",\"size\":20,\"order\":{\"_count\":\"desc\"}}}},\"size\":0,\"_source\":{\"excludes\":[]},\"stored_fields\":[\"*\"],\"script_fields\":{\"SecondsFromNow\":{\"script\":{\"inline\":\"(System.currentTimeMillis()/1000)-(doc['@timestamp'].date.millis/1000)\",\"lang\":\"painless\"}}},\"docvalue_fields\":[{\"field\":\"@timestamp\",\"format\":\"date_time\"}],\"query\":{\"bool\":{\"must\":[{\"match_all\":{}},{\"match_all\":{}},{\"range\":{\"@timestamp\":{\"gte\":1547370177415,\"lte\":1547384577415,\"format\":\"epoch_millis\"}}}],\"filter\":[],\"should\":[],\"must_not\":[]}},\"timeout\":\"30000ms\"}\n{\"index\":\"nyx_module_info*\",\"ignore_unavailable\":true,\"preference\":1547384538374}\n{\"aggs\":{\"2\":{\"terms\":{\"field\":\"module\",\"size\":20,\"order\":{\"_key\":\"desc\"}},\"aggs\":{\"1\":{\"top_hits\":{\"script_fields\":{\"SecondsFromNow\":{\"script\":{\"inline\":\"(System.currentTimeMillis()/1000)-(doc['@timestamp'].date.millis/1000)\",\"lang\":\"painless\"}}},\"size\":1,\"sort\":[{\"@timestamp\":{\"order\":\"desc\"}}]}}}}},\"size\":0,\"_source\":{\"excludes\":[]},\"stored_fields\":[\"*\"],\"script_fields\":{\"SecondsFromNow\":{\"script\":{\"inline\":\"(System.currentTimeMillis()/1000)-(doc['@timestamp'].date.millis/1000)\",\"lang\":\"painless\"}}},\"docvalue_fields\":[{\"field\":\"@timestamp\",\"format\":\"date_time\"}],\"query\":{\"bool\":{\"must\":[{\"match_all\":{}},{\"match_all\":{}},{\"range\":{\"@timestamp\":{\"gte\":1547370177415,\"lte\":1547384577415,\"format\":\"epoch_millis\"}}}],\"filter\":[],\"should\":[],\"must_not\":[]}},\"timeout\":\"30000ms\"}\n"
     logger.info(matchrequest)
     return kibanaData(es,conn,matchrequest,user,outputformat,True,OUTPUT_URL,OUTPUT_FOLDER)
 
@@ -873,7 +893,7 @@ def pg_genericCRUD(index,col,pkey,user=None):
     logger.info("PG Generic Table="+index+" Col:"+col+" Pkey:"+ pkey+" Method:"+met);    
 
     if met== 'get':   
-        query="select * from "+index+ " where id="+str(pkey)
+        query="select * from "+index+ " where "+col+"="+str(pkey)
 
         description=None
         with get_postgres_connection().cursor() as cursor:
@@ -881,8 +901,6 @@ def pg_genericCRUD(index,col,pkey,user=None):
             res=cursor.fetchone()
             description=[{"col":x[0],"type":x[1]} for x in cursor.description]
             
-            #print(description)
-            #print(res)
             res2={}
             for index,x in enumerate(cursor.description):
                 if x[1] in [1082,1184,1114]:
@@ -892,11 +910,6 @@ def pg_genericCRUD(index,col,pkey,user=None):
                     res2[x[0]]=res[index]
                 res2[x[0]+"_$type"]=x[1]
                 
-     
-        # try:
-        #     ret=es.get(index=index,id=object,doc_type=request.args.get("doc_type","doc"))
-        # except:
-        #     ret=None
         pg_connection.commit()
         return {'error':"","data":res2,"columns":description}
     elif met== 'post':
@@ -940,12 +953,11 @@ def pg_genericCRUD(index,col,pkey,user=None):
                 logger.info(res)
 
             pg_connection.commit()
-            # ret=es.delete(index=index,id=object,doc_type=request.args.get("doc_type","doc"))
-            # logger.info(ret)
             pass
         except:
             logger.error("Unable to delete record.",exc_info=True)
             ret=None
+            return {'error':"unalbe to delete record"}
 
         return {'error':""}
 
@@ -957,39 +969,96 @@ def pg_genericCRUD(index,col,pkey,user=None):
 @token_required()
 def genericCRUD(index,object,user=None):
     global es
+    data = None
 
     met=request.method.lower()
     logger.info("Generic Index="+index+" Object:"+object+" Method:"+met);    
+               
+    cui=can_use_indice(index,user,None)
+    if not cui[0]:
+        logger.info("Index Not Allowed for user.")
+        return {'error':"Not Allowed","records":[],"aggs":[]}
 
     if met== 'get':        
         try:
-            ret=es.get(index=index,id=object,doc_type=request.args.get("doc_type","doc"))
+            if elkversion==7:
+                ret=es.get(index=index,id=object)
+            else:
+                ret=es.get(index=index,id=object,doc_type=request.args.get("doc_type","doc"))
         except:
-            ret=None
+            return {'error':"unable to get data","data":None}
         return {'error':"","data":ret}
     elif met== 'post':
-        data= request.data.decode("utf-8")        
-        if index=="nyx_user":
-            dataobj=json.loads(data)
-            if("$pbkdf2-sha256" not in dataobj["password"]):
-                dataobj["password"]=pbkdf2_sha256.hash(dataobj["password"])
-                data=json.dumps(dataobj)
-        es.index(index=index,body=data,doc_type=request.args.get("doc_type","doc"),id=object)
-        return {'error':""}
+        try:
+            data= request.data.decode("utf-8")        
+            if index=="nyx_user":
+                dataobj=json.loads(data)
+                if("$pbkdf2-sha256" not in dataobj["password"]):
+                    dataobj["password"]=pbkdf2_sha256.hash(dataobj["password"])
+                    data=json.dumps(dataobj)
+            if elkversion==7:
+                es.index(index=index,body=data,id=object)
+            else:
+                es.index(index=index,body=data,doc_type=request.args.get("doc_type","doc"),id=object)
+        except:
+            return {'error':"unable to post data"}
+
     elif met== 'delete':
         try:
-            ret=es.delete(index=index,id=object,doc_type=request.args.get("doc_type","doc"))
+            if elkversion==7:
+                ret=es.delete(index=index,id=object)
+            else:
+                ret=es.delete(index=index,id=object,doc_type=request.args.get("doc_type","doc"))
             logger.info(ret)
         except:
-            ret=None
+            return {'error':"unable to delete data"}
 
-        return {'error':""}
+
+    send_event(user=user, indice=index, method=met, _id=object, doc_type=request.args.get("doc_type","doc"), obj=data)
+
+
+    return {'error':""}
+
+
+def send_event(user, indice, method, _id, doc_type=None, obj=None):    
+    notif_dest = None
+    
+    global indices
+    for ind in indices:
+        pat=ind["_source"]["indicepattern"]
+        
+        if re.search(pat, indice)!=None:
+            tmp = ind["_source"].get('notifications')
+            if tmp is not None and tmp != '':
+                notif_dest=tmp
+                break
+    
+    if notif_dest is not None:
+        obj_to_send = {
+            'user': user,
+            'method': method,
+            'indice': indice,
+            'id': _id,
+        }
+        
+        if doc_type is not None:
+            obj_to_send['doc_type'] = doc_type
+        
+        if obj is not None:
+            obj_to_send['obj'] = obj
+            
+        print(obj_to_send)
+        conn.send_message(notif_dest, json.dumps(obj_to_send))  
+    
+    else:
+        print('no notif to send')
 
 
 def handleAPICalls():
     global es,userActivities,conn
     while True:
-        logger.info("APIs history");
+        logger.info("APIs history")
+        elkversion=getELKVersion(es)
         try:
             with userlock:
                 apis=userActivities[:]
@@ -999,7 +1068,11 @@ def handleAPICalls():
                     indexdatepattern="nyx_apicalls-"+datetime.now().strftime("%Y.%m.%d").lower()
                     for api in apis:
                         action={}
-                        action["index"]={"_index":indexdatepattern,"_type":"doc"}
+                        if elkversion==7:
+                            action["index"]={"_index":indexdatepattern}
+                        else:
+                            action["index"]={"_index":indexdatepattern,"_type":"doc"}
+
                         messagebody+=json.dumps(action)+"\r\n";
                         messagebody+=json.dumps(api)+"\r\n"
                     es.bulk(messagebody)
@@ -1044,7 +1117,10 @@ def refresh_indices():
     if last_indices_refresh+timedelta(seconds=indices_refresh_seconds)>datetime.now():
         return
     logger.info("Refresh Indices")    
-    indices=es.search(index="nyx_indice",body={},doc_type="doc")["hits"]["hits"]
+    if elkversion==7:
+        indices=es.search(index="nyx_indice",body={})["hits"]["hits"]
+    else:
+        indices=es.search(index="nyx_indice",body={},doc_type="doc")["hits"]["hits"]
     last_indices_refresh=datetime.now()
 
 #---------------------------------------------------------------------------
@@ -1055,7 +1131,11 @@ def refresh_translations():
     if last_translation_refresh+timedelta(seconds=last_translation_refresh_seconds)>datetime.now():
         return
     logger.info("Refreshing Translations")    
-    translationsrec=es.search(index="nyx_translation",body={"size":1000},doc_type="doc")["hits"]["hits"]
+    if elkversion==7:
+        translationsrec=es.search(index="nyx_translation",body={"size":1000})["hits"]["hits"]
+    else:
+        translationsrec=es.search(index="nyx_translation",body={"size":1000},doc_type="doc")["hits"]["hits"]
+
     for tran in translationsrec:    
         source=tran["_source"]
         for key in source:
@@ -1129,21 +1209,11 @@ def can_use_indice(indice,user,query):
             resultsmustbefiltered=ind["_source"]["privilegecolumn"]
 
         # Check if a privilege is required to access the collection
-        # logger.info(">>>>")
-        # logger.info(indice)
-        # logger.info(ind["_source"])
-        # logger.info(re.search(pat, indice) !=None)
         if re.search(pat, indice) !=None and "privileges" in ind["_source"] and ind["_source"]["privileges"]!="":
-            # logger.info("===================")
-            # logger.info(user["privileges"])
-            # logger.info(str(ind["_source"]["privileges"]))
             if len([value for value in user["privileges"] if value in ind["_source"]["privileges"]])==0:
                 logger.info("Not allowed")
                 return (False,query,resultsmustbefiltered)
             else:
-                # logger.info("=============+>"*20)
-                # logger.info(ind["_source"])
-                # logger.info(user)
                 if "filtercolumn" in ind["_source"]:
                     if "filters" in user and len (user["filters"])>0:
                         newquery= " OR ".join([ind["_source"]["filtercolumn"]+":"+x for x in user["filters"]])
@@ -1160,7 +1230,8 @@ def can_use_indice(indice,user,query):
                     return (True,query,resultsmustbefiltered)
     
     return (True,query,resultsmustbefiltered)
-    
+
+
 #---------------------------------------------------------------------------
 # compute kibana url
 #---------------------------------------------------------------------------
