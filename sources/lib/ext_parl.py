@@ -366,12 +366,15 @@ def get_work_ppl(es, filter_no_open_work=True):
                 'final_user':i['_source']['final_user'].lower(),
                 'direction' :i['_source']['direction'],
                 'priority'  :i['_source']['description_de_l_intervention'],
-                'intervention_date_limite'  :i['_source']['date_limite_d_intervention_dt'],
+#                'intervention_date_limite'  :i['_source']['date_limite_d_intervention_dt'],
                 'floor'     :i['_source']['floor'],
                 'building'  :i['_source']['building'],
                 'location'  :i['_source']['location'],
                 'zone'      :i['_source']['zone'],
             }
+
+            if 'intervention_date_limite' in  i['_source']:
+                obj['intervention_date_limite']=i['_source']['date_limite_d_intervention_dt']
 
             if 'date_de_creation_new__dt' in i['_source']:
                 obj['creation_date']  = i['_source']['date_de_creation_new__dt']
