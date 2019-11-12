@@ -1,7 +1,8 @@
 """
 v2.11.0 AMA 31/OCT/2019  Fixed a security issue that occured when the login is the mail address and get tokenized.
 
-"""import re
+"""
+import re
 import json
 import time
 import uuid
@@ -40,14 +41,13 @@ from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
 
-VERSION="2.12.0"
+VERSION="2.12.2"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 WELCOME=os.environ["WELCOMEMESSAGE"]
 ICON=os.environ["ICON"]
 
-elkversion=6
-
+elkversion=7
 indices={}
 indices_refresh_seconds=60
 last_indices_refresh=datetime.now()-timedelta(minutes=10)

@@ -30,6 +30,7 @@ def config(api,conn,es,redis,token_required):
         def post(self, user=None):
             logger.info("schamps - post new order")
 
+            
             req= json.loads(request.data.decode('utf-8'))
             conn.send_message('/queue/SCHAMPS_NEW_ORDER', json.dumps(req))
 
