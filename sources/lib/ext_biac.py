@@ -169,11 +169,6 @@ def update_kpi101_monthly(es, month, number_of_call_1=-1, number_of_call_2=-1, n
     logger.info(number_of_call_2)
     logger.info(number_of_call_3)
     
-
-
-    #df     = genericIntervalSearch(es,"biac_kpi101_call",query='*',start=start_dt, end=end_dt, timestampfield="datetime")
-
-
     df     = es_helper.elastic_to_dataframe(es,index="biac_kpi101_call*"
                                             ,query='*'
                                             ,start=start_dt
@@ -213,8 +208,6 @@ def update_kpi101_monthly(es, month, number_of_call_1=-1, number_of_call_2=-1, n
 
     df_month = None
     if number_of_call_1 == -1 or number_of_call_2 == -1 or number_of_call_3 == -1:
-        # df_month     = genericIntervalSearch(es,"biac_kpi101_monthly",query='*',start=start_dt, end=end_dt, timestampfield="datetime")
-
         df_month     = es_helper.elastic_to_dataframe(es,index="biac_kpi101_monthly*"
                                                         ,query='*'
                                                         ,start=start_dt
@@ -333,7 +326,6 @@ def get_kpi304_values(es, lot, tec, date):
     
     else:
         dataframe.sort_values('@timestamp', inplace=True)
-        #print(dataframe)
         dataframe['@timestamp']=dataframe['@timestamp'].dt.date.astype(str)
         return dataframe.to_json(orient='records')
 
@@ -353,8 +345,6 @@ def update_kib_kpi304(es, lot, tec, date):
     logger.info(query)
     df = es_helper.elastic_to_dataframe(es, index='biac_kpi304',datecolumns=["@timestamp"]\
                                             , query=query, start=start_dt, end=end_dt)
-
-
 
 
     if 'off' not in df:
@@ -425,9 +415,7 @@ def update_month_kpi104(es, month):
     logger.info('-------------')
     logger.info(start_dt)
     logger.info(end_dt)
-                        
-    # df     = genericIntervalSearch(es,"biac_kpi104_check*",query='*',start=start_dt, end=end_dt)
-
+                      
     df     = es_helper.elastic_to_dataframe(es,index="biac_kpi104_check*"
                                             ,query='*'
                                             ,start=start_dt
@@ -558,8 +546,6 @@ def getTechnicsKPIByPriv(entities, privileges = [], kpi='600'):
                 for rec_priv in rec['kpi'+kpi+'_privileges']:
                     if priv == 'admin' or rec_priv == priv:
                         if 'kpi'+kpi+'_technics' in rec:
-                            #print(rec['lot'])
-                            
                             if rec['lot'] not in ret_technics:
                                 ret_technics[rec['lot']] = []
                             
@@ -587,7 +573,6 @@ def getTechnicsKPIByPriv(entities, privileges = [], kpi='600'):
     return ret_technics
 
 def put_default_values_kpi600_monthly(es, entities, month):
-    # entities_model = getTechnicsKPIByPriv(entities, ['admin'], kpi="600")
     entities_model = determine_model_600()
     arr = []
 
@@ -620,8 +605,6 @@ def put_default_values_kpi600_monthly(es, entities, month):
     
     bulkbody=''
     for index, row in df_kpi600.iterrows():
-        #print(row)
-
         action = {}
         action["index"] = {"_index": 'biac_kpi600_monthly',
             "_type": "doc", "_id": row['_id']}
@@ -632,7 +615,6 @@ def put_default_values_kpi600_monthly(es, entities, month):
             continue
         except:
             logger.info("Record "+row['_id']+ " not found. Creating it.... ")            
-
 
         obj = {}
 
@@ -667,14 +649,12 @@ def get_kpi600_value(es, lot, kpi600_technic, month):
     ret = None
     try:
         res = es.get(index='biac_kpi600_monthly', doc_type='doc', id=es_id)
-        #print(res)
         ret = res['_source']
 
         logger.info('=='*20)
         logger.info(str(ret))
 
         local_timezone = tzlocal.get_localzone()
-        #ret['@timestamp'] = local_timezone.localize(datetime.fromtimestamp(ret['@timestamp']/1000))
         
     except elasticsearch.NotFoundError:
         print('setting default current month')
