@@ -39,13 +39,15 @@ def config(api,conn,es,redis,token_required):
             return {'error':"",'status':'ok', 'data': json.dumps(req)}
 
     @api.route('/api/v1/schamps/check_order')
-    @api.doc(description="Create a new order",params={'token': 'A valid token'})
+    @api.doc(description="Check if there's already an order for the day",params={'token': 'A valid token'})
 
     class schampsGetOrder(Resource):    
         @token_required()
         @api.doc(description="Get day order.",params={'demandor': 'A valid User ID', 'category': 'A valid products category'})
-        def get(self, demandor, category):
+        def get(self, user=None):
             logger.info("schamps - get order list")
+            demandor=request.args.get('demandor')
+            category=request.args.get('category')
 
             query = {
                 "from": 0,
@@ -69,7 +71,7 @@ def config(api,conn,es,redis,token_required):
                                     },
                                     {
                                     "wildcard": {
-                                        "category": {
+                                        "category.keyword": {
                                         "wildcard": category,
                                         "boost": 1.0
                                         }
@@ -107,3 +109,5 @@ def config(api,conn,es,redis,token_required):
 
             
             return {'error':"",'status':'ok', 'data': json.dumps(req)}
+
+            
