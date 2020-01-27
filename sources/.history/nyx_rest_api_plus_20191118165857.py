@@ -1,6 +1,5 @@
 """
 v2.11.0 AMA 31/OCT/2019  Fixed a security issue that occured when the login is the mail address and get tokenized.
-v2.12.0 VME 07/JAN/2020  Send a message to delete a token from all instances of the rest api when Logout.
 
 """
 import re
@@ -42,7 +41,7 @@ from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
 
-VERSION="2.12.12"
+VERSION="2.12.5"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 WELCOME=os.environ["WELCOMEMESSAGE"]
@@ -642,9 +641,6 @@ class logout(Resource):
         redisserver.delete("nyx_logs_"+str(token))
         if token in tokens:
             del tokens[token]
-        
-        conn.send_message("/topic/LOGOUT_EVENT",token)
-
         return {"error":""}
 
 
@@ -1339,27 +1335,17 @@ def get_dict_dashboards(es):
     }
 
     res=es.search(index=".kibana", body=query, size=10000)
-    return {dash['_id'].split(':')[-1]: dash for dash in res['hits']['hits']}
+    return {dash['_id'].split(':')[-1]: dash for dash in res['hitexport AMQC_PASSWORD="nyxaimelespetitslapins"s']['hits']}
 
 
 #=============================================================================
-
-def messageReceived(destination,message,headers):
-    logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-    logger.info("Message Received:"+destination)
-
-    if "LOGOUT_EVENT" in destination:
-        if message in tokens:
-            del tokens[message]
-    else:
-        logger.error("Unknown destination %s" %(destination))
 
 #>> AMQC
 server={"ip":os.environ["AMQC_URL"],"port":os.environ["AMQC_PORT"]
                 ,"login":os.environ["AMQC_LOGIN"],"password":os.environ["AMQC_PASSWORD"]}
 #logger.info(server)                
 conn=amqstompclient.AMQClient(server
-    , {"name":MODULE,"version":VERSION,"lifesign":"/topic/NYX_MODULE_INFO"},['/topic/LOGOUT_EVENT'],callback=messageReceived)
+    , {"name":MODULE,"version":VERSION,"lifesign":"/topic/NYX_MODULE_INFO"},[])
 #conn,listener= amqHelper.init_amq_connection(activemq_address, activemq_port, activemq_user,activemq_password, "RestAPI",VERSION,messageReceived)
 connectionparameters={"conn":conn}
 
