@@ -38,8 +38,62 @@ def config(api,conn,es,redis,token_required):
             
             return {'error':"",'status':'ok', 'data': json.dumps(req)}
 
-    @api.route('/api/v1/schamps/check_order')
-    @api.doc(description="Check if there's already an order for the day",params={'token': 'A valid token'})
+    @api.route('/api/v1/schamps/getProductionResult')
+    @api.doc(description="Return the production result index",params={'token': 'A valid token'})
+
+    class schampsGetProductionResult(Resource):    
+        @token_required()
+        @api.doc(description="Get day order.",params={'demandor': 'A valid User ID', 'category': 'A valid products category'})
+        def get(self, user=None):
+            logger.info("schamps - get order list")
+
+            start=request.args.get('start')
+            stop=request.args.get('stop')
+
+            query = {
+                "from": 0,
+                "size": 200,
+                "query": {
+                    "bool": {
+                    "filter": [
+                        {
+                        "bool": {
+                            "must": [
+                            {
+                                "bool": {
+                                "must": [
+                                    {
+                                    "range": {
+                                        "dateOrder": {
+                                        "from": start,
+                                        "to": stop,
+                                        "include_lower": True,
+                                        "include_upper": True,
+                                        "boost": 1.0
+                                        }
+                                    }
+                                    }
+                                ]
+                                }
+                            }
+                            ]
+                        }
+                        }
+                    ]
+                    }
+                }
+            }
+
+            res=es.search(index="schamp_production_result",body=query, size=10000) 
+            req = {'results': False, 'reccords': []}
+
+            if res['hits']['total']['value'] != 0:
+                req = {'results': False, 'reccords': res['hits']['hits']}
+
+
+
+            
+            return {'error':"",'status':'ok', 'data': json.dumps(req)}
 
     class schampsGetOrder(Resource):    
         @token_required()
