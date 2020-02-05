@@ -43,7 +43,7 @@ def config(api,conn,es,redis,token_required):
 
     class schampsGetProductionResult(Resource):    
         @token_required()
-        @api.doc(description="Get day order.",params={'demandor': 'A valid User ID', 'category': 'A valid products category'})
+        @api.doc(description="Get day order.",params={'start': 'start of search', 'stop': 'End of search'})
         def get(self, user=None):
             logger.info("schamps - get order list")
 
@@ -64,7 +64,7 @@ def config(api,conn,es,redis,token_required):
                                 "must": [
                                     {
                                     "range": {
-                                        "dateOrder": {
+                                        "@timestamp": {
                                         "from": start,
                                         "to": stop,
                                         "include_lower": True,
@@ -94,6 +94,9 @@ def config(api,conn,es,redis,token_required):
 
             
             return {'error':"",'status':'ok', 'data': json.dumps(req)}
+            
+    @api.route('/api/v1/schamps/check_order')
+    @api.doc(description="Create a new order",params={'token': 'A valid token'})
 
     class schampsGetOrder(Resource):    
         @token_required()
