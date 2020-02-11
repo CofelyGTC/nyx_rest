@@ -51,7 +51,7 @@ from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
 
-VERSION="2.14.0"
+VERSION="2.14.1"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 WELCOME=os.environ["WELCOMEMESSAGE"]
