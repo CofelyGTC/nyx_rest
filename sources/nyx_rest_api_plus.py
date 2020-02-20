@@ -4,6 +4,7 @@ v2.12.0 VME 07/JAN/2020  Send a message to delete a token from all instances of 
 v2.13.0 VME 23/JAN/2020  TTL tokens dictionnary, to avoid an alive token in the rest api and dead in redis.
 v2.14.0 VME 05/FEB/2020  File system v1
 v2.14.3 AMA 05/FEB/2020  Scrolls IDs are now correctly deleted
+v2.15.0 VME 20/FEB/2020  Login will send all privileges and filters if admin
 """
 import re
 import json
@@ -51,7 +52,7 @@ from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
 
-VERSION="2.14.3"
+VERSION="2.15.0"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 WELCOME=os.environ["WELCOMEMESSAGE"]
@@ -873,8 +874,20 @@ class loginRest(Resource):
 
                 finalcategory=computeMenus(usr,str(token))
 
+                all_priv=[]
+                all_filters=[]
+                if "admin" in usr["_source"]["privileges"]:
+                    all_priv=[]
+                    all_filters=[]
 
-                resp=make_response(jsonify({'version':VERSION,'error':"",'cred':{'token':token,'user':usr["_source"]},"menus":finalcategory}))
+                    all_priv = loadData(es,conn,'nyx_privilege',{},'doc',False,(None, None, None)
+                                                    ,True,usr['_source'],None,None,None)
+
+                    all_filters = loadData(es,conn,'nyx_filter',{},'doc',False,(None, None, None)
+                                                    ,True,usr['_source'],None,None,None)
+
+                resp=make_response(jsonify({'version':VERSION,'error':"",'cred':{'token':token,'user':usr["_source"]},
+                                                            "menus":finalcategory,"all_priv":all_priv['records'],"all_filters":all_filters['records']}))
                 resp.set_cookie('nyx_kibananyx', str(token))
 
                 setACookie("nodered",usr["_source"]["privileges"],resp,token)
@@ -1389,7 +1402,7 @@ class esMapping(Resource):
             mappings.sort(key=operator.itemgetter('id'))
             return {"error":"","data":mappings}
         except elasticsearch.NotFoundError:
-            return {"error":"404","result":None}
+            return {"error":"","data":None}
 
 
 
