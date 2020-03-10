@@ -6,6 +6,8 @@ v2.14.0 VME 05/FEB/2020  File system v1
 v2.14.3 AMA 05/FEB/2020  Scrolls IDs are now correctly deleted
 v2.15.0 VME 20/FEB/2020  Login will send all privileges and filters if admin
 v2.15.1 VME 20/FEB/2020  Bug fixing
+v3.0.0  AMA 23/FEB/2020  Compatible with elastic version 7.4.2
+v3.0.1  VME 05/MAR/2020  Redisign of the files end point 
 """
 import re
 import json
@@ -53,7 +55,7 @@ from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
 
-VERSION="2.15.1"
+VERSION="3.0.1"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 WELCOME=os.environ["WELCOMEMESSAGE"]
@@ -518,27 +520,28 @@ def list_dir(dir_path, rel_path, regex):
 # API download file
 #---------------------------------------------------------------------------
 
-downloadfileAPI = api.model('download_file', {
-    'files': fields.String(description="A file or a list of file (comma separated).", required=True),
-    'rec_id': fields.String(description="The application rec_id.", required=True),
-    'path': fields.String(description="The relative path of the application.", required=True)
+filesPostAPI = api.model('files_post_model', {
+    'data': fields.String(description="A file in base64 format", required=True),
 })
 
-@name_space.route('/downloadfiles')
-class downloadFiles(Resource):
+@name_space.route('/files')
+class files(Resource):
     @token_required()
-    @check_post_parameters("rec_id","path","files")
-    @api.doc(description="Download a file or a list of file.",params={'token': 'A valid token'})
-    @api.expect(downloadfileAPI)
-    def post(self,user=None):
-        req = json.loads(request.data.decode("utf-8"))
+    # @check_post_parameters("rec_id","path","files")
+    @api.doc(description="Download a file or a list of file.",
+             params={'token': 'A valid token', 
+                     'rec_id': 'The application rec_id', 
+                     'path':'the relative path inside the app',
+                     'files': 'A file or a list of file (comma separated). (GET, DELETE)',})
+    # @api.expect(filesAPI)
+    def get(self,user=None):
+        rec_id=request.args["rec_id"]
+        path=request.args["path"]
+        files=request.args["files"].split(',')
 
-
-        files = req['files'].split(',')
-        path = req['path']
         logger.info(f"path    : {path}")
 
-        prepath, regex = retrieve_app_info(req['rec_id'])
+        prepath, regex = retrieve_app_info(rec_id)
 
         if prepath is None:
             return {'error':"unknown app"}
@@ -567,7 +570,7 @@ class downloadFiles(Resource):
 
 
             if os.path.isfile(objpath):
-                return send_file(objpath, attachment_filename=files[0])
+                return send_file(objpath, attachment_filename=files[0], cache_timeout=5)
             elif  os.path.isdir(objpath):
 
                 logger.info(get_all_file_paths(objpath))
@@ -586,7 +589,7 @@ class downloadFiles(Resource):
                 
                 logger.info(os.path.abspath(f"./zip_folder/{zip_file_name}"))
 
-                ret = send_file(os.path.abspath(f"./zip_folder/{zip_file_name}"), attachment_filename=files[0])
+                ret = send_file(os.path.abspath(f"./zip_folder/{zip_file_name}"), attachment_filename=files[0], cache_timeout=5)
                 ret.content_type = 'zipfile'
                 os.remove(f"./zip_folder/{zip_file_name}")
 
@@ -630,13 +633,70 @@ class downloadFiles(Resource):
             
             logger.info(os.path.abspath(f"./zip_folder/{zip_file_name}"))
 
-            ret = send_file(os.path.abspath(f"./zip_folder/{zip_file_name}"), attachment_filename=files[0])
+            ret = send_file(os.path.abspath(f"./zip_folder/{zip_file_name}"), attachment_filename=files[0], cache_timeout=5)
 
             os.remove(f"./zip_folder/{zip_file_name}")
             ret.content_type = 'zipfile'
             return ret
 
             #return {'error':'zip mode not yet implemented'}
+
+    @api.expect(filesPostAPI)
+    def post(self,user=None):
+        rec_id=request.args["rec_id"]
+        path=request.args["path"]
+        # files=request.args["files"].split(',')
+        
+        req= json.loads(request.data.decode("utf-8"))
+        files = req['files']
+
+
+        prepath, regex = retrieve_app_info(rec_id)
+
+        if prepath is None:
+            return {'error':"unknown app"}
+
+        prepath = os.path.abspath(prepath)
+
+        logger.info(f"prepath : {prepath}")
+
+        dirpath = os.path.abspath(f"{prepath}/{path}")
+
+        logger.info(f"dirpath : {dirpath}")
+
+        if not dirpath.startswith(prepath):
+            return {'error':"not allowed"}
+        if len(files) == 0:
+            return {'error':'error in file format'}
+        if len(files) >= 1:
+
+            for _file in files:
+                _file = files[0]
+                data_file_to_upload = base64.b64decode(_file['data'])
+                file_name=_file['file_name']
+
+                filepath = os.path.abspath(f"{dirpath}/{_file['file_name']}")
+
+                logger.info(f"filepath : {filepath}")
+
+                if not filepath.startswith(prepath):
+                    return {'error':"not allowed"}
+
+                try:
+                    newFile = open(filepath, "wb")
+                    bytearr = bytearray(data_file_to_upload)
+                    newFile.write(bytearr)
+                except:
+                    logger.error(f"unable to write file {filepath}")
+                finally:
+                    newFile.close()
+
+            return {"error":""}
+
+        else:
+            return {'error':'dont handle multiple files upload for now'}
+
+
 
 def remove_prefix(text, prefix):
     if text.startswith(prefix):
@@ -1134,7 +1194,27 @@ class extLoadDataSource(Resource):
         else:
             r = requests.post('http://esnodebal:9200/_opendistro/_sql',json={"query":query})            
             records=json.loads(r.text)            
-            
+            if "schema" in records:
+                results=[]
+                cols=[]
+                for col in records["schema"]:
+                    if "alias" in col:
+                        cols.append(col["alias"])
+                    else:
+                        cols.append(col["name"])
+
+                for rec in records["datarows"]:
+                    #for col in 
+                    obj={}
+                    for i,col in enumerate(cols):
+                        obj[col]=rec[i]
+                    
+                    results.append(obj)
+                
+                return {"error":"","records":results}
+
+
+                
             newrecords=[]
             if "aggregations" in records:
                 aggs=records["aggregations"]
@@ -1579,7 +1659,7 @@ def compute_kibana_url(dashboard_dict, appl):
 
     for pan in panels_json:
         if dash.get('_source').get('migrationVersion') and \
-           dash.get('_source').get('migrationVersion').get('dashboard') == '7.0.0':
+           dash.get('_source').get('migrationVersion').get('dashboard') in ['7.0.0','7.1.0','7.2.0','7.3.0']:
             for ref in dash.get('_source').get('references'):
                 if ref.get('name')==pan.get('panelRefName') :
                     pan['id']=ref.get('id')  
