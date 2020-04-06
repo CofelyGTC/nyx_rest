@@ -245,15 +245,15 @@ def config(api,conn,es,redis,token_required):
                 es.index(index="optiboard_token",doc_type="doc",id=guid,body=newrecord)
                 record=newrecord
 
-            logger.info(record)
-            logger.info(record)
             if record["accepted"]==1:
                 logger.info("Record is valid")
                 if "rss" in record:
                     record["rss_feed"]=loadRss(record["rss"])
 
                 if "weather" in record:
+                    record["language"]= record["weather"]["language"]
                     record["weather"]=get_weather(record["weather"]["apikey"], record["weather"]["language"],record["weather"]["location"])
+                    
 
                 if "carrousel" in record:
                     record["carrousel"]=get_carousel_config(es,record["carrousel"])
