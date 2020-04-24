@@ -12,7 +12,13 @@ v3.0.2  VME 15/MAR/2020  Fixed a few postgresql issues
 v3.1.0  VME 15/MAR/2020  Fixed an issue when % character is used in kibana
 v3.3.1  AMA 06/Apr/2020  Fixed a privilege issue for collections with filtered columns
 v3.3.2  AMA 09/Apr/2020  Token added to upload route
+v3.3.3  AMA 10/Apr/2020  Added headers to send message API
+v3.4.0  AMA 15/Apr/2020  Query filter can use elastic seacrh queries
+v3.5.0  VME 15/Apr/2020  passing header "upload_headers" to broker when calling upload endpoint
+v3.6.0  AMA 17/Apr/2020  PG queries can use an offset 
+v3.6.3  AMA 18/Apr/2020  PG queries support ordering
 """
+
 import re
 import json
 import time
@@ -58,7 +64,7 @@ from logstash_async.handler import AsynchronousLogstashHandler
 from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
-VERSION="3.3.3"
+VERSION="3.6.3"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 WELCOME=os.environ["WELCOMEMESSAGE"]
@@ -389,7 +395,8 @@ class errorRest(Resource):
 
 sendMessageAPI = api.model('sendMessage_model', {
     'destination': fields.String(description="The destinaiton example: /queue/TEST", required=True),
-    'body': fields.String(description="The message as a string.", required=True)
+    'body': fields.String(description="The message as a string.", required=True),
+    'headers': fields.String(description="The headers as a string (STRINGIFIED).")
 })
 
 @name_space.route('/sendmessage')
@@ -400,8 +407,11 @@ class sendMessage(Resource):
     @api.expect(sendMessageAPI)
    # @api.doc(body={"destination":"/queue/TEST","body":"Hello"})
     def post(self,user=None):
-        req= json.loads(request.data.decode("utf-8"))    
-        conn.send_message(req["destination"],req["body"])  
+        req= json.loads(request.data.decode("utf-8"))   
+        headers=None 
+        if "headers" in req and len(req["headers"])>0:
+            headers=json.loads(req["headers"])
+        conn.send_message(req["destination"],req["body"],headers=headers)  
         return {'error':""}
 
 
@@ -1103,9 +1113,60 @@ def upload_file(user=None):
             logger.info(file)
             logger.info(user)
             data=file.read()
-            conn.send_message(queue,base64.b64encode(data),{"file":file.filename,"token":request.args.get('token'), "user":json.dumps(user)}) 
+            conn.send_message(queue,base64.b64encode(data),{"file":file.filename,"token":request.args.get('token'), "user":json.dumps(user), "upload_headers":request.headers.environ.get('HTTP_UPLOAD_HEADERS')}) 
             return {"error":""}
     return {"error":""}
+
+#---------------------------------------------------------------------------
+# API query filter
+#---------------------------------------------------------------------------
+
+queryFilterAPI = api.model('queryFilter_model', {    
+    
+})
+#{"size":200,"query":{"bool":{"must":[{"match_all":{}}]}}}
+
+@name_space.route('/queryFilter/<string:rec_id>')
+class genericQueryFilter(Resource):
+    @token_required()
+    @api.doc(description="Fills the query filters.",params={'token': 'A valid token'})
+    @api.expect(queryFilterAPI)
+    def post(self,rec_id,user=None):
+        global es
+        
+        logger.info("Query Filter="+rec_id);    
+        app=None
+        if elkversion==7:
+            app=es.get(index="nyx_app",id=rec_id)
+        else:
+            app=es.get(index="nyx_app",doc_type="doc",id=rec_id)
+
+        if app==None:
+            return  {"error":"UNKNOWN APP"}
+
+        app=app["_source"]
+
+        if "queryfilters" not in app["config"]:
+            return  {"error":"NO QUERY FILTERS"}
+
+        for queryf in app["config"]["queryfilters"]:
+            if queryf["type"]=="queryselecter":
+                #logger.info("Compute Selecter")
+                cui=can_use_indice(queryf["index"],user,None)
+                query={"from":0,"size":0,"aggregations":{queryf["column"]:{"terms":{"field":queryf["column"],"size":200,"order":[{"_key":"asc"}]}}}}
+                query["query"]=cui[1]
+                #logger.info(json.dumps(query))
+                res=es.search(index=queryf["index"],body=query)
+                #logger.info()
+                queryf["buckets"]=res["aggregations"][queryf["column"]].get("buckets",[])
+
+        
+
+        #data= json.loads(request.data.decode("utf-8"))           
+        #return loadPGData(es,appid,get_postgres_connection(),conn,data,(request.args.get("download","0")=="1")
+        #            ,True,user,request.args.get("output","csv"),OUTPUT_URL,OUTPUT_FOLDER)
+        return  {"error":"","queryfilters":app["config"]["queryfilters"]}
+
 
 #---------------------------------------------------------------------------
 # API generic search
@@ -1329,11 +1390,10 @@ def pg_genericCRUD(index,col,pkey,user=None):
             with pg_connection.cursor() as cursor:
                 query="delete from "+index+ " where "+col+"="+str(pkey)
                 cursor.execute(query)
-                res=cursor.fetchone()
-                logger.info(res)
+#                res=cursor.fetchone()
+#                logger.info(res)
 
             pg_connection.commit()
-            pass
         except:
             logger.error("Unable to delete record.",exc_info=True)
             ret=None
