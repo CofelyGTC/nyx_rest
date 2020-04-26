@@ -218,11 +218,11 @@ def config(api,conn,es,redis,token_required):
 
     class schampsGetOrder(Resource):    
         @token_required()
-        @api.doc(description="Get day order.",params={'demandor': 'A valid User ID', 'category': 'A valid products category'})
+        @api.doc(description="Get day order.",params={'demandor': 'A valid User ID'})
         def get(self, user=None):
             logger.info("schamps - get order list")
             demandor=request.args.get('demandor')
-            category=request.args.get('category')
+            
 
             query = {
                 "from": 0,
@@ -240,14 +240,6 @@ def config(api,conn,es,redis,token_required):
                                     "wildcard": {
                                         "demandor.keyword": {
                                         "wildcard": demandor,
-                                        "boost": 1.0
-                                        }
-                                    }
-                                    },
-                                    {
-                                    "wildcard": {
-                                        "category.keyword": {
-                                        "wildcard": category,
                                         "boost": 1.0
                                         }
                                     }
