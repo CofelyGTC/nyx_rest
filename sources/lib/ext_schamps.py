@@ -211,7 +211,72 @@ def config(api,conn,es,redis,token_required):
 
             
             return {'error':"",'status':'ok', 'data': json.dumps(req)}
+
+
+    @api.route('/api/v1/schamps/check_order_new')
+    @api.doc(description="Create a new order",params={'token': 'A valid token'})
+
+    class schampsGetOrder(Resource):    
+        @token_required()
+        @api.doc(description="Get day order.",params={'demandor': 'A valid User ID'})
+        def get(self, user=None):
+            logger.info("schamps - get order list")
+            demandor=request.args.get('demandor')
             
+
+            query = {
+                "from": 0,
+                "size": 200,
+                "query": {
+                    "bool": {
+                    "filter": [
+                        {
+                        "bool": {
+                            "must": [
+                            {
+                                "bool": {
+                                "must": [
+                                    {
+                                    "wildcard": {
+                                        "demandor.keyword": {
+                                        "wildcard": demandor,
+                                        "boost": 1.0
+                                        }
+                                    }
+                                    },
+                                    {
+                                    "range": {
+                                        "dateOrder": {
+                                        "from": "now/d",
+                                        "to": None,
+                                        "include_lower": True,
+                                        "include_upper": True,
+                                        "boost": 1.0
+                                        }
+                                    }
+                                    }
+                                ]
+                                }
+                            }
+                            ]
+                        }
+                        }
+                    ]
+                    }
+                }
+            }
+
+            res=es.search(index="schamps_orders_new",body=query, size=1000) 
+            req = {'results': False, 'reccords': []}
+
+            if res['hits']['total']['value'] != 0:
+                req = {'results': False, 'reccords': res['hits']['hits']}
+
+
+
+            
+            return {'error':"",'status':'ok', 'data': json.dumps(req)}
+
     @api.route('/api/v1/schamps/check_order')
     @api.doc(description="Create a new order",params={'token': 'A valid token'})
 
