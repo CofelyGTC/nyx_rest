@@ -216,7 +216,7 @@ def config(api,conn,es,redis,token_required):
     @api.route('/api/v1/schamps/check_order_new')
     @api.doc(description="Create a new order",params={'token': 'A valid token'})
 
-    class schampsGetOrder(Resource):    
+    class schampsGetOrderNew(Resource):    
         @token_required()
         @api.doc(description="Get day order.",params={'demandor': 'A valid User ID'})
         def get(self, user=None):
