@@ -14,6 +14,8 @@ from datetime import timedelta
 
 from flask import Flask, jsonify, request
 from flask_restplus import Api, Resource, fields
+from elastic_helper import es_helper
+
 
 
 logger=logging.getLogger()
@@ -211,6 +213,41 @@ def config(api,conn,es,redis,token_required):
 
             
             return {'error':"",'status':'ok', 'data': json.dumps(req)}
+    
+    @api.route('/api/v1/schamps/get_products_tree')
+    @api.doc(description="Return Products tree",params={'token': 'A valid token'})
+
+    class schampsGetProductsTree(Resource):    
+        @token_required()
+        @api.doc(description="Get products tree.",params={'token': 'A valid token'})
+        def get(self, user=None): 
+            logger.info("schamps - get products tree")
+            df = es_helper.elastic_to_dataframe(es, index="products_parameters_new")
+            objClass = {}
+            lvl1 = df .sortLvl1.unique()
+            for i in lvl1:
+                objClass[i] = {}
+                subDF = df.loc[df['sortLvl1'] == i]
+                lvlObjects = subDF.sortLvl2.unique()
+                for j in lvlObjects:
+                    objClass[i][j] = {}
+                    subSubDF = subDF.loc[subDF['sortLvl2'] == j]
+                    subLvlObjectsLvl3 = subSubDF.sortLvl3.unique()
+                    objClass[i][j]['sortLvl3'] = subLvlObjectsLvl3.tolist()
+                    subLvlObjectsLvl4 = subSubDF.sortLvl4.unique()
+                    objClass[i][j]['sortLvl4'] = subLvlObjectsLvl4.tolist()
+                    subLvlObjectsLvl5 = subSubDF.sortLvl5.unique()
+                    objClass[i][j]['sortLvl5'] = subLvlObjectsLvl5.tolist()
+                    subLvlObjectsLvl6 = subSubDF.sortLvl6.unique()
+                    objClass[i][j]['sortLvl6'] = subLvlObjectsLvl6.tolist()
+                    subLvlObjectsLvl7 = subSubDF.sortLvl7.unique()
+                    objClass[i][j]['sortLvl7'] = subLvlObjectsLvl7.tolist()
+                    #for k in subLvlObjects:
+                    #    objClass[i][j][k] = {}
+            
+            req = {'results': False, 'reccords': objClass}
+            logger.info(objClass)
+            return {'error':"",'status':'ok', 'data': json.dumps(req)}
 
 
     @api.route('/api/v1/schamps/check_order_new')
@@ -266,7 +303,7 @@ def config(api,conn,es,redis,token_required):
                 }
             }
 
-            res=es.search(index="schamps_orders_new",body=query, size=1000) 
+            res=es.search(index="schamps_orders",body=query, size=1000) 
             req = {'results': False, 'reccords': []}
 
             if res['hits']['total']['value'] != 0:
