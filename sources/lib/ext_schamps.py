@@ -14,6 +14,8 @@ from datetime import timedelta
 
 from flask import Flask, jsonify, request
 from flask_restplus import Api, Resource, fields
+from elastic_helper import es_helper
+
 
 
 logger=logging.getLogger()
@@ -211,17 +213,108 @@ def config(api,conn,es,redis,token_required):
 
             
             return {'error':"",'status':'ok', 'data': json.dumps(req)}
+    
+    @api.route('/api/v1/schamps/get_products_tree')
+    @api.doc(description="Return Products tree",params={'token': 'A valid token'})
+
+    class schampsGetProductsTree(Resource):    
+        @token_required()
+        @api.doc(description="Get products tree.",params={'token': 'A valid token'})
+        def get(self, user=None): 
+            logger.info("schamps - get products tree")
+            df = es_helper.elastic_to_dataframe(es, index="products_parameters_new")
+            objClass = {}
+            lvl1 = df .sortLvl1.unique()
+            for i in lvl1:
+                objClass[i] = {}
+                subDF = df.loc[df['sortLvl1'] == i]
+                lvlObjects = subDF.sortLvl2.unique()
+                for j in lvlObjects:
+                    objClass[i][j] = {}
+                    subSubDF = subDF.loc[subDF['sortLvl2'] == j]
+                    subLvlObjectsLvl3 = subSubDF.sortLvl3.unique()
+                    objClass[i][j]['sortLvl3'] = subLvlObjectsLvl3.tolist()
+                    subLvlObjectsLvl4 = subSubDF.sortLvl4.unique()
+                    objClass[i][j]['sortLvl4'] = subLvlObjectsLvl4.tolist()
+                    subLvlObjectsLvl5 = subSubDF.sortLvl5.unique()
+                    objClass[i][j]['sortLvl5'] = subLvlObjectsLvl5.tolist()
+                    subLvlObjectsLvl6 = subSubDF.sortLvl6.unique()
+                    objClass[i][j]['sortLvl6'] = subLvlObjectsLvl6.tolist()
+                    subLvlObjectsLvl7 = subSubDF.sortLvl7.unique()
+                    objClass[i][j]['sortLvl7'] = subLvlObjectsLvl7.tolist()
+                    subLvlObjectsLvl8 = subSubDF.sortLvl8.unique()
+                    objClass[i][j]['sortLvl8'] = subLvlObjectsLvl8.tolist()
+                    subLvlObjectsLvl9 = subSubDF.sortLvl9.unique()
+                    objClass[i][j]['sortLvl9'] = subLvlObjectsLvl9.tolist()
+                    subLvlObjectsLvl10 = subSubDF.sortLvl10.unique()
+                    objClass[i][j]['sortLvl10'] = subLvlObjectsLvl10.tolist()
+                    
+                    #for k in subLvlObjects:
+                    #    objClass[i][j][k] = {}
+            
+            req = {'results': False, 'reccords': objClass}
+            logger.info(objClass)
+            return {'error':"",'status':'ok', 'data': json.dumps(req)}
+
+
+    @api.route('/api/v1/schamps/check_user_shop')
+    @api.doc(description="Return The Shop Name attribute to the user",params={'token': 'A valid token'})
+
+    class schampGetUserShop(Resource):    
+        @token_required()
+        @api.doc(description="Get User Shop.",params={'demandor': 'A valid User ID'})
+        def get(self, user=None):
+            logger.info("schamps - get user shop")
+            demandor=request.args.get('demandor')
+            
+
+            query = {
+                "from": 0,
+                "size": 200,
+                "query": {
+                    "bool": {
+                    "filter": [
+                        {
+                        "bool": {
+                            "must": [
+                            {
+                                "term": {
+                                    "userId.keyword": {
+                                        "value": demandor,
+                                        "boost": 1.0
+                                    }
+                                    }
+                            }
+                            ]
+                        }
+                        }
+                    ]
+                    }
+                }
+            }
+
+            res=es.search(index="schamp_link_shop_user",body=query, size=1000) 
+            req = {'results': False, 'reccords': []}
+
+            if res['hits']['total']['value'] != 0:
+                req = {'results': False, 'reccords': res['hits']['hits']}
+
+
+
+            
+            return {'error':"",'status':'ok', 'data': json.dumps(req)}        
 
 
     @api.route('/api/v1/schamps/check_order_new')
     @api.doc(description="Create a new order",params={'token': 'A valid token'})
 
-    class schampsGetOrder(Resource):    
+    class schampsGetOrderNew(Resource):    
         @token_required()
-        @api.doc(description="Get day order.",params={'demandor': 'A valid User ID'})
+        @api.doc(description="Get day order.",params={'demandor': 'A valid User ID', 'shop': 'The name of the attributed Shop'})
         def get(self, user=None):
             logger.info("schamps - get order list")
             demandor=request.args.get('demandor')
+            shop = request.args.get('shop')
             
 
             query = {
@@ -238,8 +331,8 @@ def config(api,conn,es,redis,token_required):
                                 "must": [
                                     {
                                     "wildcard": {
-                                        "demandor.keyword": {
-                                        "wildcard": demandor,
+                                        "shop.keyword": {
+                                        "wildcard": shop,
                                         "boost": 1.0
                                         }
                                     }
@@ -266,7 +359,7 @@ def config(api,conn,es,redis,token_required):
                 }
             }
 
-            res=es.search(index="schamps_orders_new",body=query, size=1000) 
+            res=es.search(index="schamps_orders",body=query, size=1000) 
             req = {'results': False, 'reccords': []}
 
             if res['hits']['total']['value'] != 0:
