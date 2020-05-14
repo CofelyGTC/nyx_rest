@@ -31,7 +31,6 @@ def get_mappings(es,index):
         for field in maps2:
             if "type" in maps2[field]:
                 finalmaps[field]=maps2[field]["type"]
-    
     return finalmaps
 
 @cached(cache=TTLCache(maxsize=1024, ttl=300))
