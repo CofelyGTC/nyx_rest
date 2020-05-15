@@ -175,6 +175,8 @@ def bhd_dashboard(es, management=None, filter_no_open_work=True):
                     
     
     dict_in_out = get_stat_in_out(es)
+    if dict_in_out == None:
+        dict_in_out={}
     #CLEANING NAME FROM KIZEO
     clean_dict_in_out = {}
     for worktech in dict_in_out:
