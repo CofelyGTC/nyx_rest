@@ -454,7 +454,7 @@ class lambdasRest(Resource):
 class configRest(Resource):    
     def get(self):
         logger.info("Config called")
-        return {'error':"",'status':'ok','version':VERSION,'welcome':WELCOME,'icon':ICON}
+        return {'error':"",'status':'ok','version':VERSION,'welcome':WELCOME,'icon':ICON, 'elastic_version':elkversion}
 
 
 #---------------------------------------------------------------------------
