@@ -39,6 +39,25 @@ def config(api,conn,es,redis,token_required):
 
             
             return {'error':"",'status':'ok', 'data': json.dumps(req)}
+
+
+
+    @api.route('/api/v1/schamps/new_dus')
+    @api.doc(description="Create a new dus",params={'token': 'A valid token'})
+
+    class schampsNewDus(Resource):    
+        @token_required()
+        @api.doc(description="Create a new dus.",params={'token': 'A valid token'})
+        def post(self, user=None):
+            logger.info("schamps - post new dus")
+
+            
+            req= json.loads(request.data.decode('utf-8'))
+            conn.send_message('/queue/SCHAMPS_NEW_DUS', json.dumps(req))
+
+
+            
+            return {'error':"",'status':'ok', 'data': json.dumps(req)}        
             
     @api.route('/api/v1/schamps/getDeliveredList')
     @api.doc(description="Return the delivered list index",params={'token': 'A valid token'})
@@ -485,6 +504,117 @@ def config(api,conn,es,redis,token_required):
 
             
             return {'error':"",'status':'ok', 'data': json.dumps(req)}
+
+    @api.route('/api/v1/schamps/check_dus')
+    @api.doc(description="Check if dus exists",params={'token': 'A valid token'})
+
+    class schampsGetDus(Resource):    
+        @token_required()
+        @api.doc(description="Get day dus.",params={'demandor': 'A valid User ID', 'shop': 'The name of the attributed Shop'})
+        def get(self, user=None):
+            logger.info("schamps - get dus list")
+            demandor=request.args.get('demandor')
+            shop = request.args.get('shop')
+
+            query = {}
+
+            if request.args.get('start') == None:
+                query = {
+                    "from": 0,
+                    "size": 200,
+                    "query": {
+                        "bool": {
+                        "filter": [
+                            {
+                            "bool": {
+                                "must": [
+                                {
+                                    "bool": {
+                                    "must": [
+                                        {
+                                        "wildcard": {
+                                            "shop.keyword": {
+                                            "wildcard": shop,
+                                            "boost": 1.0
+                                            }
+                                        }
+                                        },
+                                        {
+                                        "range": {
+                                            "dateOrder": {
+                                            "from": "now/d",
+                                            "to": None,
+                                            "include_lower": True,
+                                            "include_upper": True,
+                                            "boost": 1.0
+                                            }
+                                        }
+                                        }
+                                    ]
+                                    }
+                                }
+                                ]
+                            }
+                            }
+                        ]
+                        }
+                    }
+                }
+            else:
+                start=request.args.get('start')
+                stop=request.args.get('stop')
+                query = {
+                    "from": 0,
+                    "size": 200,
+                    "query": {
+                        "bool": {
+                        "filter": [
+                            {
+                            "bool": {
+                                "must": [
+                                {
+                                    "bool": {
+                                    "must": [
+                                        {
+                                        "wildcard": {
+                                            "shop.keyword": {
+                                            "wildcard": shop,
+                                            "boost": 1.0
+                                            }
+                                        }
+                                        },
+                                        {
+                                        "range": {
+                                            "dateOrder": {
+                                            "from": start,
+                                            "to": stop,
+                                            "include_lower": True,
+                                            "include_upper": True,
+                                            "boost": 1.0
+                                            }
+                                        }
+                                        }
+                                    ]
+                                    }
+                                }
+                                ]
+                            }
+                            }
+                        ]
+                        }
+                    }
+                }    
+
+            res=es.search(index="schamps_dus",body=query, size=1000) 
+            req = {'results': False, 'reccords': []}
+
+            if res['hits']['total']['value'] != 0:
+                req = {'results': False, 'reccords': res['hits']['hits']}
+
+
+
+            
+            return {'error':"",'status':'ok', 'data': json.dumps(req)}        
 
 
 
