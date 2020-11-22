@@ -262,7 +262,7 @@ def config(api,conn,es,redis,token_required):
         @api.doc(description="Get products tree.",params={'token': 'A valid token'})
         def get(self, user=None): 
             logger.info("schamps - get products tree")
-            df = es_helper.elastic_to_dataframe(es, index="products_parameters_new")
+            df = es_helper.elastic_to_dataframe(es, index="products_parameters_new", query="display: true")
             objClass = {}
             lvl1 = df .sortLvl1.unique()
             for i in lvl1:
