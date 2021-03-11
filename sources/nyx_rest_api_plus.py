@@ -1700,6 +1700,24 @@ class esMapping(Resource):
             return {"error":"","data":None}
 
 
+#---------------------------------------------------------------------------
+# API getRecord
+#---------------------------------------------------------------------------
+@name_space.route('/getrecord/<string:_index>/<string:_id>')
+@api.doc(description="Return a record based on his ID.", params={'token': 'A valid token'})
+class getRecord(Resoource):
+    @token_required()
+    def get(self, _index='', _id=''):
+        global es
+        logger.info('get record with ID: '+_id+' in Index: '+_index)
+        try:
+            record = es.get(index=_index,id=_id)
+            return {"error":"","data":record}
+        except Exception as er:
+            return {"error":er,"data":None}
+            
+
+
 
 #---------------------------------------------------------------------------
 # refresh_indices
