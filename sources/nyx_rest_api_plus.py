@@ -72,9 +72,11 @@ from common import loadData,applyPrivileges,kibanaData,getELKVersion
 from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
-VERSION="3.10.6"
+VERSION="3.10.13"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
+
+UIVERSION = os.environ["UIVERSION"]
 WELCOME=os.environ["WELCOMEMESSAGE"]
 ICON=os.environ["ICON"]
 
@@ -90,6 +92,7 @@ last_indices_refresh=datetime.now()-timedelta(minutes=10)
 translations={}
 last_translation_refresh_seconds=60
 last_translation_refresh=datetime.now()-timedelta(minutes=10)
+
 
 
 # tokens={}
@@ -478,6 +481,19 @@ class errorRest(Resource):
     def get(self,user=None):
         logger.error("ERROR")
         return {'error':"",'status':'ok','version':VERSION,'name':MODULE}
+
+
+#---------------------------------------------------------------------------
+# API get UI last version
+#---------------------------------------------------------------------------@name_space.route('/lambdas/<string:runner>/<string:lambdaname>')
+@name_space.route('/getLastVersion')
+@api.doc(description="Get UI version from env.")
+class lambdasRest(Resource):
+#    @token_required("A1","A2")
+    def get(self):        
+        logger.info("getting UI Version: "+UIVERSION)
+        
+        return {'error':"",'status':'ok','version':VERSION,'uiversion':UIVERSION}
 
 #---------------------------------------------------------------------------
 # API sendMessage
@@ -1034,7 +1050,8 @@ class loginRest(Resource):
                 usr["_source"]["password"]=""
                 usr["_source"]["id"]=data["login"]
 
-                redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
+                #redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
+                redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*2)
 
                 finalcategory=computeMenus(usr,str(token))
 
@@ -1096,6 +1113,43 @@ class logout(Resource):
         conn.send_message("/topic/LOGOUT_EVENT",token)
 
         return {"error":""}
+        
+
+#---------------------------------------------------------------------------
+# Close all
+#---------------------------------------------------------------------------
+@name_space.route('/logoutall')
+class logoutall(Resource):
+    @token_required("admin","useradmin")
+    @api.doc(description="Disconnect Every Others users",params={'token': 'A valid token'})
+    def get(self,user=None):
+        logger.info(">>> Logout")
+        mytoken=request.args.get('token')
+
+        for token in tokens:
+            if token != mytoken:
+                redisserver.delete("nyx_tok_"+str(token))
+                redisserver.delete("nyx_nodered_"+str(token))
+                redisserver.delete("nyx_cerebro_"+str(token))
+                redisserver.delete("nyx_kibana_"+str(token))
+                redisserver.delete("nyx_anaconda_"+str(token))
+                redisserver.delete("nyx_logs_"+str(token))
+                if token in tokens:
+                    del tokens[token]
+
+        '''token=request.args.get('token')
+        redisserver.delete("nyx_tok_"+str(token))
+        redisserver.delete("nyx_nodered_"+str(token))
+        redisserver.delete("nyx_cerebro_"+str(token))
+        redisserver.delete("nyx_kibana_"+str(token))
+        redisserver.delete("nyx_anaconda_"+str(token))
+        redisserver.delete("nyx_logs_"+str(token))
+        if token in tokens:
+            del tokens[token]
+        
+        conn.send_message("/topic/LOGOUT_EVENT",token)'''
+
+        return {"error":""}       
 
 
 #---------------------------------------------------------------------------
@@ -1557,6 +1611,7 @@ def pg_genericCRUD(index,col,pkey,user=None):
 # API generic crud
 #---------------------------------------------------------------------------
 @app.route('/api/v1/generic/<index>/<object>',methods=['GET','POST','DELETE'])
+@api.doc(description="Generics Cruds.",params={'token': 'A valid token'})
 @token_required()
 def genericCRUD(index,object,user=None):
     global es,elkversion
@@ -1581,16 +1636,27 @@ def genericCRUD(index,object,user=None):
         return {'error':"","data":ret}
     elif met== 'post':
         try:
-            data= request.data.decode("utf-8")        
+            data= request.data.decode("utf-8")    
+                
             if index=="nyx_user":
                 dataobj=json.loads(data)
                 if("$pbkdf2-sha256" not in dataobj["password"]):
                     dataobj["password"]=pbkdf2_sha256.hash(dataobj["password"])
                     data=json.dumps(dataobj)
-            if elkversion==7:
-                es.index(index=index,body=data,id=object)
-            else:
-                es.index(index=index,body=data,doc_type=request.args.get("doc_type","doc"),id=object)
+
+            dataobj=json.loads(data)        
+            if 'update' in dataobj:
+                data = dataobj['data']
+                if elkversion==7:
+                    ret = es.update(index=index,body=data,id=object)
+                else:
+                    es.update(index=index,body=data,doc_type=request.args.get("doc_type","doc"),id=object)
+                ret = logger.info(ret)
+            else:    
+                if elkversion==7:
+                    es.index(index=index,body=data,id=object)
+                else:
+                    es.index(index=index,body=data,doc_type=request.args.get("doc_type","doc"),id=object)
         except:
             logger.error("unable to post data",exc_info=True)
             return {'error':"unable to post data"}
@@ -1604,6 +1670,17 @@ def genericCRUD(index,object,user=None):
             logger.info(ret)
         except:
             return {'error':"unable to delete data"}
+    '''elif met == 'update':
+        try:
+            data= request.data.decode("utf-8")  
+            if elkversion==7:
+                ret = es.update(index=index,body=data,id=object)
+            else:
+                es.update(index=index,body=data,doc_type=request.args.get("doc_type","doc"),id=object)
+            ret = logger.info(ret)
+        except:
+            return {'error':"unable to update data"}'''
+
 
 
     send_event(user=user, indice=index, method=met, _id=object, doc_type=request.args.get("doc_type","doc"), obj=data)
@@ -1705,9 +1782,9 @@ class esMapping(Resource):
 #---------------------------------------------------------------------------
 @name_space.route('/getrecord/<string:_index>/<string:_id>')
 @api.doc(description="Return a record based on his ID.", params={'token': 'A valid token'})
-class getRecord(Resoource):
+class getRecord(Resource):
     @token_required()
-    def get(self, _index='', _id=''):
+    def get(self, _index='', _id='', user=None):
         global es
         logger.info('get record with ID: '+_id+' in Index: '+_index)
         try:
