@@ -1,0 +1,51 @@
+2021-03-11 09:17:45,240.240 INFO nyx_rest_api_plus - <module>: Starting...
+2021-03-11 09:17:45,241.241 INFO nyx_rest_api_plus - <module>: REST API 3.10.7
+2021-03-11 09:17:45,245.245 INFO nyx_rest_api_plus - <module>: Starting redis connection
+2021-03-11 09:17:45,246.246 INFO nyx_rest_api_plus - <module>: IP=>nyxaws.cofelygtc.com<
+2021-03-11 09:18:22,928.928 INFO nyx_rest_api_plus - <module>: Starting...
+2021-03-11 09:18:22,928.928 INFO nyx_rest_api_plus - <module>: REST API 3.10.7
+2021-03-11 09:18:22,933.933 INFO nyx_rest_api_plus - <module>: Starting redis connection
+2021-03-11 09:18:22,933.933 INFO nyx_rest_api_plus - <module>: IP=>nyxaws.cofelygtc.com<
+2021-03-11 09:18:22,952.952 INFO amqstompclient - create_connection: #=- Creating connection.
+2021-03-11 09:18:22,952.952 INFO transport - attempt_connection: Attempting connection to host nyxaws.cofelygtc.com, port 61613
+2021-03-11 09:18:23,006.006 INFO transport - attempt_connection: Established connection to host nyxaws.cofelygtc.com, port 61613
+2021-03-11 09:18:23,007.007 INFO transport - __receiver_loop: Starting receiver loop
+2021-03-11 09:18:23,007.007 INFO transport - transmit: Sending frame: 'STOMP', headers={'client-id': 'nyx_rest_5089', 'accept-version': '1.1', 'login': 'admin', 'passcode': '********', 'heart-beat': '10000,20000'}
+2021-03-11 09:18:23,060.060 INFO transport - process_frame: Received frame: 'ERROR', headers={'content-type': 'text/plain', 'message': 'User name [admin] or password is invalid.'}, len(body)=2914
+2021-03-11 09:18:23,060.060 ERROR amqstompclient - on_error: #=- Received an error "java.lang.SecurityException: User name [admin] or password is invalid.
+	at org.apache.activemq.security.JaasAuthenticationBroker.authenticate(JaasAuthenticationBroker.java:97)
+	at org.apache.activemq.security.JaasAuthenticationBroker.addConnection(JaasAuthenticationBroker.java:68)
+	at org.apache.activemq.broker.BrokerFilter.addConnection(BrokerFilter.java:99)
+	at org.apache.activemq.broker.BrokerFilter.addConnection(BrokerFilter.java:99)
+	at org.apache.activemq.broker.TransportConnection.processAddConnection(TransportConnection.java:843)
+	at org.apache.activemq.broker.jmx.ManagedTransportConnection.processAddConnection(ManagedTransportConnection.java:77)
+	at org.apache.activemq.command.ConnectionInfo.visit(ConnectionInfo.java:139)
+	at org.apache.activemq.broker.TransportConnection.service(TransportConnection.java:330)
+	at org.apache.activemq.broker.TransportConnection$1.onCommand(TransportConnection.java:194)
+	at org.apache.activemq.transport.MutexTransport.onCommand(MutexTransport.java:45)
+	at org.apache.activemq.transport.AbstractInactivityMonitor.onCommand(AbstractInactivityMonitor.java:301)
+	at org.apache.activemq.transport.stomp.StompTransportFilter.sendToActiveMQ(StompTransportFilter.java:97)
+	at org.apache.activemq.transport.stomp.ProtocolConverter.sendToActiveMQ(ProtocolConverter.java:202)
+	at org.apache.activemq.transport.stomp.ProtocolConverter.onStompConnect(ProtocolConverter.java:774)
+	at org.apache.activemq.transport.stomp.ProtocolConverter.onStompCommand(ProtocolConverter.java:265)
+	at org.apache.activemq.transport.stomp.StompTransportFilter.onCommand(StompTransportFilter.java:85)
+	at org.apache.activemq.transport.TransportSupport.doConsume(TransportSupport.java:83)
+	at org.apache.activemq.transport.tcp.TcpTransport.doRun(TcpTransport.java:233)
+	at org.apache.activemq.transport.tcp.TcpTransport.run(TcpTransport.java:215)
+	at java.lang.Thread.run(Thread.java:748)
+Caused by: javax.security.auth.login.FailedLoginException: Password does not match
+	at org.apache.activemq.jaas.PropertiesLoginModule.login(PropertiesLoginModule.java:92)
+	at sun.reflect.GeneratedMethodAccessor3299.invoke(Unknown Source)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:498)
+	at javax.security.auth.login.LoginContext.invoke(LoginContext.java:755)
+	at javax.security.auth.login.LoginContext.access$000(LoginContext.java:195)
+	at javax.security.auth.login.LoginContext$4.run(LoginContext.java:682)
+	at javax.security.auth.login.LoginContext$4.run(LoginContext.java:680)
+	at java.security.AccessController.doPrivileged(Native Method)
+	at javax.security.auth.login.LoginContext.invokePriv(LoginContext.java:680)
+	at javax.security.auth.login.LoginContext.login(LoginContext.java:587)
+	at org.apache.activemq.security.JaasAuthenticationBroker.authenticate(JaasAuthenticationBroker.java:92)
+	... 19 more
+"
+2021-03-11 09:18:23,061.061 ERROR amqstompclient - general_error: #=- General Error. Exiting

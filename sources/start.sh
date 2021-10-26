@@ -4,12 +4,13 @@ export ELK_PASSWORD="aimelespetitslapins"
 export ELK_PORT=9200
 export ELK_SSL=true
 export LOCAL_MODE=true
+export UIVERSION="v3.25.144"
 
 export REDIS_IP="nyxaws.cofelygtc.com"
 export USE_LOGSTASH=true
 export AMQC_URL="nyxaws.cofelygtc.com"
 export AMQC_LOGIN=admin
-export AMQC_PASSWORD=nyxamqpassword
+export AMQC_PASSWORD=nyxaimelespetitslapins
 export AMQC_PORT=61613
 
 

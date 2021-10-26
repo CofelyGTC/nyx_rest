@@ -72,7 +72,7 @@ from common import loadData,applyPrivileges,kibanaData,getELKVersion
 from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
-VERSION="3.10.13"
+VERSION="3.10.32"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -1051,7 +1051,11 @@ class loginRest(Resource):
                 usr["_source"]["id"]=data["login"]
 
                 #redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
-                redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*2)
+                if "admin" in usr["_source"]["privileges"]:
+                    redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
+                else:
+                    redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*12)
+
 
                 finalcategory=computeMenus(usr,str(token))
 
@@ -1821,7 +1825,8 @@ def refresh_translations():
     if elkversion==7:
         translationsrec=es.search(index="nyx_translation",body={"size":1000})["hits"]["hits"]
     else:
-        translationsrec=es.search(index="nyx_translation",body={"size":1000},doc_type="doc")["hits"]["hits"]
+        #translationsrec=es.search(index="nyx_translation",body={"size":1000},doc_type="doc")["hits"]["hits"]
+        translationsrec=es.search(index="nyx_translation",body={"size":1000})["hits"]["hits"]
 
     for tran in translationsrec:    
         source=tran["_source"]
