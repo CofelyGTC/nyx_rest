@@ -219,12 +219,13 @@ def config(api,conn,es,redis,token_required):
 
     class schampsGetProductionResult(Resource):    
         @token_required()
-        @api.doc(description="Get day order.",params={'start': 'start of search', 'stop': 'End of search'})
+        @api.doc(description="Get day order.",params={'start': 'start of search', 'stop': 'End of search', 'filter': 'Filter'})
         def get(self, user=None):
             logger.info("schamps  get order list")
 
             start=request.args.get('start')
             stop=request.args.get('stop')
+            paramQuery = request.args.get('filter')
 
             query = {
                 "from": 0,
@@ -248,6 +249,15 @@ def config(api,conn,es,redis,token_required):
                                         "boost": 1.0
                                         }
                                     }
+                                    },
+                                    {
+                                      "wildcard":{
+                                        "lieuProduction.keyword":
+                                        {
+                                            "wildcard": paramQuery
+                                        }
+                                      }
+                                      
                                     }
                                 ]
                                 }
@@ -260,7 +270,7 @@ def config(api,conn,es,redis,token_required):
                 }
             }
 
-            res=es.search(index="schamp_production_result",body=query, size=10000) 
+            res=es.search(index="schamps_production_result",body=query, size=10000) 
             req = {'results': False, 'reccords': []}
 
             if res['hits']['total']['value'] != 0:
