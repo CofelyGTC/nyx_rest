@@ -85,18 +85,12 @@ from common import loadData,applyPrivileges,kibanaData,getELKVersion
 from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
-<<<<<<< Updated upstream
-VERSION="3.12.0"
-MODULE="nyx_rest"+"_"+str(os.getpid())
-
-=======
-VERSION="3.10.36"
+VERSION="3.13.0"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
 UIVERSION = os.environ["UIVERSION"]
 CLIENT = os.environ["CLIENT"]
->>>>>>> Stashed changes
 WELCOME=os.environ["WELCOMEMESSAGE"]
 ICON=os.environ["ICON"]
 
