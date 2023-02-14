@@ -85,9 +85,18 @@ from common import loadData,applyPrivileges,kibanaData,getELKVersion
 from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
+<<<<<<< Updated upstream
 VERSION="3.12.0"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
+=======
+VERSION="3.10.36"
+MODULE="nyx_rest"+"_"+str(os.getpid())
+
+
+UIVERSION = os.environ["UIVERSION"]
+CLIENT = os.environ["CLIENT"]
+>>>>>>> Stashed changes
 WELCOME=os.environ["WELCOMEMESSAGE"]
 ICON=os.environ["ICON"]
 
@@ -492,6 +501,36 @@ class errorRest(Resource):
         logger.error("ERROR")
         return {'error':"",'status':'ok','version':VERSION,'name':MODULE}
 
+<<<<<<< Updated upstream
+=======
+
+#---------------------------------------------------------------------------
+# API get UI last version
+#---------------------------------------------------------------------------@name_space.route('/lambdas/<string:runner>/<string:lambdaname>')
+@name_space.route('/getLastVersion')
+@api.doc(description="Get UI version from env.")
+class lambdasRest(Resource):
+#    @token_required("A1","A2")
+    def get(self):        
+        logger.info("getting UI Version: "+UIVERSION)
+        
+        return {'error':"",'status':'ok','version':VERSION,'uiversion':UIVERSION}
+
+
+
+#---------------------------------------------------------------------------
+# API get UI last version
+#---------------------------------------------------------------------------@name_space.route('/lambdas/<string:runner>/<string:lambdaname>')
+@name_space.route('/getClient')
+@api.doc(description="Get Client from env.")
+class lambdasClient(Resource):
+#    @token_required("A1","A2")
+    def get(self):        
+        logger.info("getting CLIENT: "+CLIENT)
+        
+        return {'error':"",'status':'ok', 'client': CLIENT}        
+
+>>>>>>> Stashed changes
 #---------------------------------------------------------------------------
 # API sendMessage
 #---------------------------------------------------------------------------
