@@ -48,7 +48,6 @@ import importlib
 
 import threading
 import cachetools
-import subprocess
 import os,logging
 import pandas as pd
 import elasticsearch
@@ -64,7 +63,7 @@ from importlib import resources
 from common import get_mappings
 
 
-from googleapiclient import discovery
+#from googleapiclient import discovery
 import httplib2
 from oauth2client import client
 
@@ -76,7 +75,7 @@ from passlib.hash import pbkdf2_sha256
 from flask import make_response,url_for
 from flask_cors import CORS, cross_origin
 from amqstompclient import amqstompclient
-from flask_restplus import Api, Resource, fields
+from flask_restx import Api, Resource, fields
 from cachetools import cached, LRUCache, TTLCache
 from flask import Flask, jsonify, request,Blueprint
 from logging.handlers import TimedRotatingFileHandler
@@ -496,8 +495,6 @@ class errorRest(Resource):
         logger.error("ERROR")
         return {'error':"",'status':'ok','version':VERSION,'name':MODULE}
 
-<<<<<<< Updated upstream
-=======
 
 #---------------------------------------------------------------------------
 # API get UI last version
@@ -525,7 +522,6 @@ class lambdasClient(Resource):
         
         return {'error':"",'status':'ok', 'client': CLIENT}        
 
->>>>>>> Stashed changes
 #---------------------------------------------------------------------------
 # API sendMessage
 #---------------------------------------------------------------------------
