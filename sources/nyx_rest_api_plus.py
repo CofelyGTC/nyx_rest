@@ -82,10 +82,11 @@ from flask import Flask, jsonify, request,Blueprint
 from logging.handlers import TimedRotatingFileHandler
 from logstash_async.handler import AsynchronousLogstashHandler
 from common import loadData,applyPrivileges,kibanaData,getELKVersion
-from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
+from elasticsearch import Elasticsearch as ES
+#, RequestsHttpConnection as RC
 
 
-VERSION="3.13.0"
+VERSION="3.11.3"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -94,7 +95,7 @@ CLIENT = os.environ["CLIENT"]
 WELCOME=os.environ["WELCOMEMESSAGE"]
 ICON=os.environ["ICON"]
 
-elkversion=6
+elkversion=7
 
 restapiresults=[]
 restapiresultslock=threading.RLock()
@@ -258,7 +259,7 @@ def clean_kibana_url(url,column,filter):
 
 @cached(cache=TTLCache(maxsize=1024, ttl=60))
 def getAPIKey(token):
-    if elkversion==7:
+    if elkversion>6:
         return es.get(index="nyx_apikey",id=token)
     else:
         return es.get(index="nyx_apikey",id=token,doc_type="_doc")
@@ -409,7 +410,7 @@ def pushHistoryToELK(request,timespan,usr,token,error):
 @app.route('/api/v1/ui_css')
 def cssRest():    
     logger.info("CSS called")
-    if elkversion==7:
+    if elkversion>6:
         res=es.get(index="nyx_config",id="nyx_css")    
     else:
         res=es.get(index="nyx_config",id="nyx_css",doc_type="doc")    
@@ -594,7 +595,7 @@ class listDir(Resource):
 
 def retrieve_app_info(rec_id):
     try:
-        if elkversion==7:
+        if elkversion>6:
             app=es.get(index="nyx_app",id=rec_id)
         else:
             app=es.get(index="nyx_app",doc_type="doc",id=rec_id)
@@ -893,7 +894,7 @@ class reloadConfig(Resource):
 def computeMenus(usr,token,apptag):
     
     refresh_translations()
-    if elkversion==7:
+    if elkversion>6:
         res3=es.search(size=1000,index="nyx_app",body={"sort" : [{ "order" : "asc" }]})
     else:
         res3=es.search(size=1000,index="nyx_app",doc_type="doc",body={"sort" : [{ "order" : "asc" }]})
@@ -1183,7 +1184,7 @@ class loginRest(Resource):
             cleanlogin=data["login"].split(">")[0]
 
             try:
-                if elkversion==7:
+                if elkversion>6:
                     usr=es.get(index="nyx_user",id=cleanlogin)
                 else:
                     usr=es.get(index="nyx_user",doc_type="doc",id=cleanlogin)
@@ -1208,7 +1209,7 @@ class loginRest(Resource):
                             }
                         }
                     }
-                if elkversion==7:
+                if elkversion>6:
                     users=es.search(index="nyx_user",body=body)
                 else:
                     users=es.search(index="nyx_user",doc_type="doc",body=body)
@@ -1243,7 +1244,7 @@ class loginRest(Resource):
                 if ">" in data["login"] and "admin" in usr["_source"]["privileges"]:
                     otheruser=data["login"].split(">")[1]
                     try:
-                        if elkversion==7:
+                        if elkversion>6:
                             usr=es.get(index="nyx_user",id=otheruser)
                         else:
                             usr=es.get(index="nyx_user",doc_type="doc",id=otheruser)
@@ -1346,7 +1347,7 @@ class reset_password(Resource):
         logger.info(">>> Reset password");
         req= json.loads(request.data.decode("utf-8"))  
         try:
-            if elkversion==7:
+            if elkversion>6:
                 usrdb=es.get(index="nyx_user",id=req["login"])
             else:
                 usrdb=es.get(index="nyx_user",doc_type="doc",id=req["login"])
@@ -1354,7 +1355,7 @@ class reset_password(Resource):
             return {"error":"usernotfound"}
             
         usrdb["_source"]["password"]=pbkdf2_sha256.hash(req["new_password"])
-        if elkversion==7:
+        if elkversion>6:
             res=es.index(index="nyx_user",body=usrdb["_source"],id=req["login"])
         else:
             res=es.index(index="nyx_user",body=usrdb["_source"],doc_type="doc",id=req["login"])
@@ -1387,14 +1388,14 @@ class change_password(Resource):
         req= json.loads(request.data.decode("utf-8"))  
         logger.info(req)
         logger.info(user)
-        if elkversion==7:
+        if elkversion>6:
             usrdb=es.get(index="nyx_user",id=user["id"])
         else:
             usrdb=es.get(index="nyx_user",doc_type="doc",id=user["id"])
         if pbkdf2_sha256.verify(req["old_password"], usrdb["_source"]["password"]):
             
             usrdb["_source"]["password"]=pbkdf2_sha256.hash(req["new_password"])
-            if elkversion==7:
+            if elkversion>6:
                 res=es.index(index="nyx_user",body=usrdb["_source"],id=user["id"])
             else:
                 res=es.index(index="nyx_user",body=usrdb["_source"],doc_type="doc",id=user["id"])
@@ -1457,7 +1458,7 @@ class genericQueryFilter(Resource):
         data= json.loads(request.data.decode("utf-8"))           
 
         app=None
-        if elkversion==7:
+        if elkversion>6:
             app=es.get(index="nyx_app",id=rec_id)
         else:
             app=es.get(index="nyx_app",doc_type="doc",id=rec_id)
@@ -1617,7 +1618,7 @@ class extLoadDataSource(Resource):
         end=request.args.get("end",None)
         logger.info("Data source called "+dsid+" start:"+str(start)+" end:"+str(end))
 
-        if elkversion==7:
+        if elkversion>6:
             ds=es.get(index="nyx_datasource",id=dsid)
         else:
             ds=es.get(index="nyx_datasource",doc_type="doc",id=dsid)
@@ -1811,7 +1812,7 @@ def genericCRUD(index,object,user=None):
 
     if met== 'get':        
         try:
-            if elkversion==7:
+            if elkversion>6:
                 ret=es.get(index=index,id=object)
             else:
                 ret=es.get(index=index,id=object,doc_type=request.args.get("doc_type","doc"))
@@ -1826,23 +1827,43 @@ def genericCRUD(index,object,user=None):
                 if("$pbkdf2-sha256" not in dataobj["password"]):
                     dataobj["password"]=pbkdf2_sha256.hash(dataobj["password"])
                     data=json.dumps(dataobj)
-            if elkversion==7:
-                es.index(index=index,body=data,id=object)
-            else:
-                es.index(index=index,body=data,doc_type=request.args.get("doc_type","doc"),id=object)
+
+            dataobj=json.loads(data)        
+            if 'update' in dataobj:
+                data = dataobj['data']
+                if elkversion>6:
+                    ret = es.update(index=index,body=data,id=object)
+                else:
+                    es.update(index=index,body=data,doc_type=request.args.get("doc_type","doc"),id=object)
+                ret = logger.info(ret)
+            else:    
+                if elkversion>6:
+                    es.index(index=index,body=data,id=object)
+                else:
+                    es.index(index=index,body=data,doc_type=request.args.get("doc_type","doc"),id=object)
         except:
             logger.error("unable to post data",exc_info=True)
             return {'error':"unable to post data"}
 
     elif met== 'delete':
         try:
-            if elkversion==7:
+            if elkversion>6:
                 ret=es.delete(index=index,id=object)
             else:
                 ret=es.delete(index=index,id=object,doc_type=request.args.get("doc_type","doc"))
             logger.info(ret)
         except:
             return {'error':"unable to delete data"}
+    '''elif met == 'update':
+        try:
+            data= request.data.decode("utf-8")  
+            if elkversion==7:
+                ret = es.update(index=index,body=data,id=object)
+            else:
+                es.update(index=index,body=data,doc_type=request.args.get("doc_type","doc"),id=object)
+            ret = logger.info(ret)
+        except:
+            return {'error':"unable to update data"}'''
 
 
     send_event(user=user, indice=index, method=met, _id=object, doc_type=request.args.get("doc_type","doc"), obj=data)
@@ -1899,7 +1920,7 @@ def handleAPICalls():
                     indexdatepattern="nyx_apicalls-"+datetime.now().strftime("%Y.%m.%d").lower()
                     for api in apis:
                         action={}
-                        if elkversion==7:
+                        if elkversion>6:
                             action["index"]={"_index":indexdatepattern}
                         else:
                             action["index"]={"_index":indexdatepattern,"_type":"doc"}
@@ -1948,7 +1969,7 @@ def refresh_indices():
     if last_indices_refresh+timedelta(seconds=indices_refresh_seconds)>datetime.now():
         return
     logger.info("Refresh Indices")    
-    if elkversion==7:
+    if elkversion>6:
         indices=es.search(index="nyx_indice",body={})["hits"]["hits"]
     else:
         indices=es.search(index="nyx_indice",body={},doc_type="doc")["hits"]["hits"]
@@ -1962,7 +1983,7 @@ def refresh_translations():
     if last_translation_refresh+timedelta(seconds=last_translation_refresh_seconds)>datetime.now():
         return
     logger.info("Refreshing Translations")    
-    if elkversion==7:
+    if elkversion>6:
         translationsrec=es.search(index="nyx_translation",body={"size":1000})["hits"]["hits"]
     else:
         translationsrec=es.search(index="nyx_translation",body={"size":1000},doc_type="doc")["hits"]["hits"]
@@ -2206,7 +2227,7 @@ logger.info (os.environ["ELK_SSL"])
 
 if os.environ["ELK_SSL"]=="true":
     host_params = {'host':os.environ["ELK_URL"], 'port':int(os.environ["ELK_PORT"]), 'use_ssl':True}
-    es = ES([host_params], connection_class=RC, http_auth=(os.environ["ELK_LOGIN"], os.environ["ELK_PASSWORD"]),  use_ssl=True ,verify_certs=False)
+    es = ES([host_params], http_auth=(os.environ["ELK_LOGIN"], os.environ["ELK_PASSWORD"]), verify_certs=False)
 else:
     host_params="http://"+os.environ["ELK_URL"]+":"+os.environ["ELK_PORT"]
     es = ES(hosts=[host_params])
@@ -2243,4 +2264,4 @@ if __name__ != '__main__':
 
 if __name__ == '__main__':    
     logger.info("AMQC_URL          :"+os.environ["AMQC_URL"])
-    app.run(threaded=False,host= '0.0.0.0')
+    app.run(threaded=False,host='0.0.0.0')
