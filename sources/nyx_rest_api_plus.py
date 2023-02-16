@@ -86,7 +86,7 @@ from elasticsearch import Elasticsearch as ES
 #, RequestsHttpConnection as RC
 
 
-VERSION="3.11.3"
+VERSION="3.11.4"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -496,8 +496,6 @@ class errorRest(Resource):
         logger.error("ERROR")
         return {'error':"",'status':'ok','version':VERSION,'name':MODULE}
 
-<<<<<<< Updated upstream
-=======
 
 #---------------------------------------------------------------------------
 # API get UI last version
@@ -525,7 +523,6 @@ class lambdasClient(Resource):
         
         return {'error':"",'status':'ok', 'client': CLIENT}        
 
->>>>>>> Stashed changes
 #---------------------------------------------------------------------------
 # API sendMessage
 #---------------------------------------------------------------------------
@@ -894,8 +891,10 @@ class reloadConfig(Resource):
 def computeMenus(usr,token,apptag):
     
     refresh_translations()
-    if elkversion>6:
+    if elkversion==7:
         res3=es.search(size=1000,index="nyx_app",body={"sort" : [{ "order" : "asc" }]})
+    if elkversion==8:
+        res3=es.search(size=1000,index="nyx_app",query={"match_all": {}}, sort=[{ "order" : "asc" }])
     else:
         res3=es.search(size=1000,index="nyx_app",doc_type="doc",body={"sort" : [{ "order" : "asc" }]})
     
@@ -1095,6 +1094,8 @@ class loginGoogleRest(Resource):
                     }
                 if elkversion==7:
                     users=es.search(index="nyx_user",body=body)
+                elif elkversion==8:
+                    users=es.search(index="nyx_user",query=body)    
                 else:
                     users=es.search(index="nyx_user",doc_type="doc",body=body)
                 #logger.info(users)
@@ -1209,8 +1210,10 @@ class loginRest(Resource):
                             }
                         }
                     }
-                if elkversion>6:
+                if elkversion==7:
                     users=es.search(index="nyx_user",body=body)
+                if elkversion==8:
+                    users=es.search(index="nyx_user",query=body)
                 else:
                     users=es.search(index="nyx_user",doc_type="doc",body=body)
                 #logger.info(users)
@@ -1222,6 +1225,7 @@ class loginRest(Resource):
 
             if usr !=None and pbkdf2_sha256.verify(data["password"], usr["_source"]["password"]):
 
+                logger.info("************* Step 1  **************")
                 if usr["_source"].get("doublePhase",False)==True:
                     if "doublecode" in data:
                         logger.info("Must check code")
@@ -1252,7 +1256,11 @@ class loginRest(Resource):
                         usr=None
                         return jsonify({'error':"Unknown User"})
 
+                logger.info("************* Step 2  **************")
+
                 token=uuid.uuid4()
+
+                logger.info(getUserFromToken)
                         
                 with tokenlock:
                     tokens[str(token)]=usr["_source"]       #TO BE DONE REMOVE PREVIOUS TOKENS OF THIS USER  
@@ -1543,8 +1551,10 @@ class genericQueryFilter(Resource):
                         "format": "epoch_millis"
                     }
                     query["query"]["bool"]["must"].append(newobj )
-
-                res=es.search(index=app["config"]["index"],body=query)
+                if elkversion==8: 
+                    res=es.search(index=app["config"]["index"],query=query)
+                else:
+                    res=es.search(index=app["config"]["index"],body=query)
                 #logger.info()
                 queryf["buckets"]=res["aggregations"][qcol].get("buckets",[])
 #                if queryf["index"] not in [_["key"] for _ in queryf["buckets"]]:
@@ -1969,8 +1979,10 @@ def refresh_indices():
     if last_indices_refresh+timedelta(seconds=indices_refresh_seconds)>datetime.now():
         return
     logger.info("Refresh Indices")    
-    if elkversion>6:
+    if elkversion==7:
         indices=es.search(index="nyx_indice",body={})["hits"]["hits"]
+    elif elkversion==8:
+        indices=es.search(index="nyx_indice",query={"match_all": {}})["hits"]["hits"]    
     else:
         indices=es.search(index="nyx_indice",body={},doc_type="doc")["hits"]["hits"]
     last_indices_refresh=datetime.now()
@@ -1983,8 +1995,10 @@ def refresh_translations():
     if last_translation_refresh+timedelta(seconds=last_translation_refresh_seconds)>datetime.now():
         return
     logger.info("Refreshing Translations")    
-    if elkversion>6:
+    if elkversion==7:
         translationsrec=es.search(index="nyx_translation",body={"size":1000})["hits"]["hits"]
+    elif elkversion==8:
+        translationsrec=es.search(index="nyx_translation",query={"match_all": {}}, size=1000)["hits"]["hits"]    
     else:
         translationsrec=es.search(index="nyx_translation",body={"size":1000},doc_type="doc")["hits"]["hits"]
 
@@ -2191,8 +2205,11 @@ def get_dict_dashboards(es):
             }
         }
     }
+    if elkversion==8:
+        res=es.search(index=".kibana", body=query, size=10000)
+    else:
+        res=es.search(index=".kibana", body=query, size=10000)
 
-    res=es.search(index=".kibana", body=query, size=10000)
     return {dash['_id'].split(':')[-1]: dash for dash in res['hits']['hits']}
 
 
@@ -2264,4 +2281,4 @@ if __name__ != '__main__':
 
 if __name__ == '__main__':    
     logger.info("AMQC_URL          :"+os.environ["AMQC_URL"])
-    app.run(threaded=False,host='0.0.0.0')
+    app.run(threaded=False,host='0.0.0.0', port=5001)
