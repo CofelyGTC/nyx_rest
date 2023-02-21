@@ -48,7 +48,7 @@ import importlib
 
 import threading
 import cachetools
-import subprocess
+#import subprocess
 import os,logging
 import pandas as pd
 import elasticsearch
@@ -60,13 +60,13 @@ from zipfile import ZipFile
 
 from datetime import datetime
 from datetime import timedelta
-from importlib import resources
+#from importlib import resources
 from common import get_mappings
 
 
-from googleapiclient import discovery
+#from googleapiclient import discovery
 import httplib2
-from oauth2client import client
+#from oauth2client import client
 
 
 
@@ -77,11 +77,11 @@ from flask import make_response,url_for
 from flask_cors import CORS, cross_origin
 from amqstompclient import amqstompclient
 from flask_restplus import Api, Resource, fields
-from cachetools import cached, LRUCache, TTLCache
+from cachetools import cached, TTLCache #,LRUCache
 from flask import Flask, jsonify, request,Blueprint
 from logging.handlers import TimedRotatingFileHandler
 from logstash_async.handler import AsynchronousLogstashHandler
-from common import loadData,applyPrivileges,kibanaData,getELKVersion
+from common import loadData,kibanaData,getELKVersion #,applyPrivileges
 from elasticsearch import Elasticsearch as ES
 #, RequestsHttpConnection as RC
 
