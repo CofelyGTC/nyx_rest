@@ -1,0 +1,327 @@
+2023-02-16 13:50:19,771.771 INFO nyx_rest_api_plus - <module>: Starting...
+2023-02-16 13:50:19,771.771 INFO nyx_rest_api_plus - <module>: REST API 3.11.3
+2023-02-16 13:50:19,775.775 INFO nyx_rest_api_plus - <module>: Starting redis connection
+2023-02-16 13:50:19,775.775 INFO nyx_rest_api_plus - <module>: IP=>quantesx-dev-v8.cofelygtc.com<
+2023-02-16 13:50:19,795.795 INFO nyx_rest_api_plus - <module>: {'ip': 'quantesx-dev-v8.cofelygtc.com', 'port': '61613', 'login': 'admin', 'password': 'nyxaimelespetitslapins'}
+2023-02-16 13:50:19,795.795 INFO amqstompclient - create_connection: #=- Creating connection.
+2023-02-16 14:22:39,062.062 INFO nyx_rest_api_plus - <module>: Starting...
+2023-02-16 14:22:39,063.063 INFO nyx_rest_api_plus - <module>: REST API 3.11.3
+2023-02-16 14:22:39,067.067 INFO nyx_rest_api_plus - <module>: Starting redis connection
+2023-02-16 14:22:39,067.067 INFO nyx_rest_api_plus - <module>: IP=>quantesx-dev-v8.cofelygtc.com<
+2023-02-16 14:22:39,085.085 INFO nyx_rest_api_plus - <module>: {'ip': 'quantesx-dev-v8.cofelygtc.com', 'port': '61613', 'login': 'admin', 'password': 'nyxaimelespetitslapins'}
+2023-02-16 14:22:39,085.085 INFO amqstompclient - create_connection: #=- Creating connection.
+2023-02-16 14:22:39,085.085 INFO transport - attempt_connection: Attempting connection to host quantesx-dev-v8.cofelygtc.com, port 61613
+2023-02-16 14:23:54,752.752 WARNING transport - attempt_connection: Could not connect to host quantesx-dev-v8.cofelygtc.com, port 61613
+Traceback (most recent call last):
+  File "/Users/julianfickers/dev/GitHub/nyx_rest/venv/lib/python3.7/site-packages/amqstompclient/amqstompclient.py", line 51, in __init__
+    self.create_connection(self)
+TypeError: create_connection() takes 1 positional argument but 2 were given
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/julianfickers/dev/GitHub/nyx_rest/venv/lib/python3.7/site-packages/stomp/transport.py", line 732, in attempt_connection
+    self.socket = get_socket(host_and_port[0], host_and_port[1], self.__timeout)
+  File "/Users/julianfickers/dev/GitHub/nyx_rest/venv/lib/python3.7/site-packages/stomp/backwardsock26.py", line 16, in get_socket
+    return socket.create_connection((host, port), timeout)
+  File "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/socket.py", line 727, in create_connection
+    raise err
+  File "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/socket.py", line 716, in create_connection
+    sock.connect(sa)
+TimeoutError: [Errno 60] Operation timed out
+2023-02-16 14:23:54,965.965 INFO transport - attempt_connection: Attempting connection to host quantesx-dev-v8.cofelygtc.com, port 61613
+2023-02-16 14:25:11,089.089 WARNING transport - attempt_connection: Could not connect to host quantesx-dev-v8.cofelygtc.com, port 61613
+Traceback (most recent call last):
+  File "/Users/julianfickers/dev/GitHub/nyx_rest/venv/lib/python3.7/site-packages/amqstompclient/amqstompclient.py", line 51, in __init__
+    self.create_connection(self)
+TypeError: create_connection() takes 1 positional argument but 2 were given
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/julianfickers/dev/GitHub/nyx_rest/venv/lib/python3.7/site-packages/stomp/transport.py", line 732, in attempt_connection
+    self.socket = get_socket(host_and_port[0], host_and_port[1], self.__timeout)
+  File "/Users/julianfickers/dev/GitHub/nyx_rest/venv/lib/python3.7/site-packages/stomp/backwardsock26.py", line 16, in get_socket
+    return socket.create_connection((host, port), timeout)
+  File "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/socket.py", line 727, in create_connection
+    raise err
+  File "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/socket.py", line 716, in create_connection
+    sock.connect(sa)
+TimeoutError: [Errno 60] Operation timed out
+2023-02-16 14:25:11,294.294 INFO transport - attempt_connection: Attempting connection to host quantesx-dev-v8.cofelygtc.com, port 61613
+2023-02-16 14:25:30,582.582 INFO nyx_rest_api_plus - <module>: Starting...
+2023-02-16 14:25:30,582.582 INFO nyx_rest_api_plus - <module>: REST API 3.11.3
+2023-02-16 14:25:30,587.587 INFO nyx_rest_api_plus - <module>: Starting redis connection
+2023-02-16 14:25:30,587.587 INFO nyx_rest_api_plus - <module>: IP=>quantesx-dev-v8.cofelygtc.com<
+2023-02-16 14:25:30,606.606 INFO nyx_rest_api_plus - <module>: {'ip': 'quantesx-dev-v8.cofelygtc.com', 'port': '61613', 'login': 'admin', 'password': 'nyxaimelespetitslapins'}
+2023-02-16 14:25:30,622.622 INFO amqstompclient - create_connection: #=- Creating connection.
+2023-02-16 14:25:30,622.622 INFO transport - attempt_connection: Attempting connection to host quantesx-dev-v8.cofelygtc.com, port 61613
+2023-02-16 14:26:14,787.787 INFO nyx_rest_api_plus - <module>: Starting...
+2023-02-16 14:26:14,787.787 INFO nyx_rest_api_plus - <module>: REST API 3.11.3
+2023-02-16 14:26:14,792.792 INFO nyx_rest_api_plus - <module>: Starting redis connection
+2023-02-16 14:26:14,792.792 INFO nyx_rest_api_plus - <module>: IP=>quantesx-dev-v8.cofelygtc.com<
+2023-02-16 14:26:14,817.817 INFO nyx_rest_api_plus - <module>: {'ip': 'quantesx-dev-v8.cofelygtc.com', 'port': '61613', 'login': 'admin', 'password': 'nyxaimelespetitslapins'}
+2023-02-16 14:26:14,817.817 INFO amqstompclient - create_connection: #=- Creating connection.
+2023-02-16 14:26:14,817.817 INFO transport - attempt_connection: Attempting connection to host quantesx-dev-v8.cofelygtc.com, port 61613
+2023-02-16 14:27:30,380.380 WARNING transport - attempt_connection: Could not connect to host quantesx-dev-v8.cofelygtc.com, port 61613
+Traceback (most recent call last):
+  File "/Users/julianfickers/dev/GitHub/nyx_rest/venv/lib/python3.7/site-packages/amqstompclient/amqstompclient.py", line 51, in __init__
+    self.create_connection(self)
+TypeError: create_connection() takes 1 positional argument but 2 were given
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/julianfickers/dev/GitHub/nyx_rest/venv/lib/python3.7/site-packages/stomp/transport.py", line 732, in attempt_connection
+    self.socket = get_socket(host_and_port[0], host_and_port[1], self.__timeout)
+  File "/Users/julianfickers/dev/GitHub/nyx_rest/venv/lib/python3.7/site-packages/stomp/backwardsock26.py", line 16, in get_socket
+    return socket.create_connection((host, port), timeout)
+  File "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/socket.py", line 727, in create_connection
+    raise err
+  File "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/socket.py", line 716, in create_connection
+    sock.connect(sa)
+TimeoutError: [Errno 60] Operation timed out
+2023-02-16 14:27:30,591.591 INFO transport - attempt_connection: Attempting connection to host quantesx-dev-v8.cofelygtc.com, port 61613
+2023-02-16 14:28:46,085.085 WARNING transport - attempt_connection: Could not connect to host quantesx-dev-v8.cofelygtc.com, port 61613
+Traceback (most recent call last):
+  File "/Users/julianfickers/dev/GitHub/nyx_rest/venv/lib/python3.7/site-packages/amqstompclient/amqstompclient.py", line 51, in __init__
+    self.create_connection(self)
+TypeError: create_connection() takes 1 positional argument but 2 were given
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/julianfickers/dev/GitHub/nyx_rest/venv/lib/python3.7/site-packages/stomp/transport.py", line 732, in attempt_connection
+    self.socket = get_socket(host_and_port[0], host_and_port[1], self.__timeout)
+  File "/Users/julianfickers/dev/GitHub/nyx_rest/venv/lib/python3.7/site-packages/stomp/backwardsock26.py", line 16, in get_socket
+    return socket.create_connection((host, port), timeout)
+  File "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/socket.py", line 727, in create_connection
+    raise err
+  File "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/socket.py", line 716, in create_connection
+    sock.connect(sa)
+TimeoutError: [Errno 60] Operation timed out
+2023-02-16 14:28:46,289.289 INFO transport - attempt_connection: Attempting connection to host quantesx-dev-v8.cofelygtc.com, port 61613
+2023-02-16 14:29:41,612.612 INFO nyx_rest_api_plus - <module>: Starting...
+2023-02-16 14:29:41,613.613 INFO nyx_rest_api_plus - <module>: REST API 3.11.3
+2023-02-16 14:29:41,618.618 INFO nyx_rest_api_plus - <module>: Starting redis connection
+2023-02-16 14:29:41,618.618 INFO nyx_rest_api_plus - <module>: IP=>quantesx-dev-v8.cofelygtc.com<
+2023-02-16 14:29:41,639.639 INFO nyx_rest_api_plus - <module>: {'ip': 'quantesx-dev-v8.cofelygtc.com', 'port': '61613', 'login': 'admin', 'password': 'nyxaimelespetitslapins'}
+2023-02-16 14:29:41,639.639 INFO amqstompclient - create_connection: #=- Creating connection.
+2023-02-16 14:29:41,640.640 INFO transport - attempt_connection: Attempting connection to host quantesx-dev-v8.cofelygtc.com, port 61613
+2023-02-16 14:29:41,713.713 INFO transport - attempt_connection: Established connection to host quantesx-dev-v8.cofelygtc.com, port 61613
+2023-02-16 14:29:41,714.714 INFO transport - __receiver_loop: Starting receiver loop
+2023-02-16 14:29:41,714.714 INFO transport - transmit: Sending frame: 'STOMP', headers={'client-id': 'nyx_rest_85827', 'accept-version': '1.1', 'login': 'admin', 'passcode': '********', 'heart-beat': '10000,20000'}
+2023-02-16 14:29:41,749.749 INFO transport - process_frame: Received frame: 'CONNECTED', headers={'server': 'ActiveMQ/5.15.2', 'heart-beat': '20000,10000', 'session': 'nyx_rest_85827', 'version': '1.1'}, len(body)=0
+2023-02-16 14:29:41,750.750 INFO transport - transmit: Sending frame: 'SUBSCRIBE', headers={'activemq.prefetchSize': 1, 'destination': '/topic/LOGOUT_EVENT', 'id': 1, 'ack': 'client'}
+2023-02-16 14:29:41,750.750 INFO transport - transmit: Sending frame: 'SUBSCRIBE', headers={'activemq.prefetchSize': 1, 'destination': '/topic/NYX_LAMBDA_RESTAPI', 'id': 2, 'ack': 'client'}
+2023-02-16 14:29:41,750.750 INFO nyx_rest_api_plus - <module>: true
+2023-02-16 14:29:41,893.893 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:29:42,026.026 INFO _transport - perform_request: GET https://quantesx-dev-v8.cofelygtc.com:9200/ [status:200 duration:0.132s]
+2023-02-16 14:29:42,027.027 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 345}
+2023-02-16 14:29:42,035.035 INFO _transport - perform_request: GET https://quantesx-dev-v8.cofelygtc.com:9200/ [status:200 duration:0.142s]
+2023-02-16 14:29:42,036.036 INFO nyx_rest_api_plus - refresh_translations: Refreshing Translations
+2023-02-16 14:29:42,084.084 INFO _transport - perform_request: POST https://quantesx-dev-v8.cofelygtc.com:9200/nyx_translation/_search [status:200 duration:0.048s]
+2023-02-16 14:29:42,085.085 INFO nyx_rest_api_plus - refresh_translations: {'en': {'menus': {'Import Log': 'Import Log', 'Map': 'Map', 'Data': 'Data', 'Privileges': 'Privileges', 'Filters': 'Filters', 'Dashboard': 'Dashboard', 'Weather': 'Weather', 'Generate Reports': 'Generate Reports', 'Reports': 'Reports', 'Tools': 'Tools', 'Forms': 'Forms', 'Users': 'Users', 'Upload File': 'Upload File', 'Test Import': 'Test Import', 'Upload XLS File': 'Upload XLS File', 'Tasks': 'Tasks', 'User Activity': 'User Activity', 'Users Config': 'Users Config', 'Translations': 'Translations'}}, 'fr': {'menus': {'Import Log': 'Log Importation', 'Map': 'Plan', 'Data': 'Données', 'Privileges': 'Privilèges', 'Filters': 'Filtres', 'Dashboard': 'Tableau de bord', 'Weather': 'Météo', 'Generate Reports': 'Generer des rapports', 'Reports': 'Rapports', 'Tools': 'Outils', 'Forms': 'Formulaires', 'Users': 'Utilisateurs', 'Upload File': 'Télécharger un fichier', 'Test Import': 'Test Importation 3', 'Upload XLS File': 'Télécharger un fichier XLS', 'Tasks': 'Taches', 'User Activity': 'Activité', 'Users Config': 'Config utilisateurs', 'Translations': 'Traductions'}}}
+2023-02-16 14:29:42,085.085 INFO nyx_rest_api_plus - <module>: Scanning files in lib...
+2023-02-16 14:29:42,085.085 INFO nyx_rest_api_plus - <module>: ========================
+2023-02-16 14:29:42,086.086 INFO nyx_rest_api_plus - <module>: Importing 2:ext_biac.py
+2023-02-16 14:29:42,086.086 INFO nyx_rest_api_plus - <module>: lib.ext_biac
+2023-02-16 14:29:42,114.114 INFO ext_biac - <module>: ***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>
+2023-02-16 14:29:42,118.118 INFO nyx_rest_api_plus - <module>: Importing 2:ext_sigfox 2.py
+2023-02-16 14:29:42,119.119 INFO nyx_rest_api_plus - <module>: lib.ext_sigfox 2
+2023-02-16 14:29:42,120.120 INFO nyx_rest_api_plus - <module>: Importing 2:ext_parl 2.py
+2023-02-16 14:29:42,120.120 INFO nyx_rest_api_plus - <module>: lib.ext_parl 2
+2023-02-16 14:29:42,179.179 INFO nyx_rest_api_plus - <module>: Importing 2:ext_datasource 2.py
+2023-02-16 14:29:42,179.179 INFO nyx_rest_api_plus - <module>: lib.ext_datasource 2
+2023-02-16 14:29:42,180.180 INFO nyx_rest_api_plus - <module>: Importing 2:ext_biac 2.py
+2023-02-16 14:29:42,180.180 INFO nyx_rest_api_plus - <module>: lib.ext_biac 2
+2023-02-16 14:29:42,187.187 INFO ext_biac 2 - <module>: ***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>
+2023-02-16 14:29:42,195.195 INFO nyx_rest_api_plus - <module>: Importing 2:ext_weather 2.py
+2023-02-16 14:29:42,195.195 INFO nyx_rest_api_plus - <module>: lib.ext_weather 2
+2023-02-16 14:29:42,199.199 INFO nyx_rest_api_plus - <module>: Importing 2:ext_schamps 2.py
+2023-02-16 14:29:42,199.199 INFO nyx_rest_api_plus - <module>: lib.ext_schamps 2
+2023-02-16 14:29:42,206.206 INFO ext_schamps 2 - <module>: ***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>***>
+2023-02-16 14:29:42,217.217 INFO nyx_rest_api_plus - <module>: Importing 2:ext_optiboard 2.py
+2023-02-16 14:29:42,217.217 INFO nyx_rest_api_plus - <module>: lib.ext_optiboard 2
+2023-02-16 14:29:42,259.259 INFO ext_optiboard 2 - config: Redis<ConnectionPool<Connection<host=quantesx-dev-v8.cofelygtc.com,port=6379,db=0>>>
+2023-02-16 14:29:42,262.262 INFO nyx_rest_api_plus - <module>: Importing 2:ext_test.py
+2023-02-16 14:29:42,263.263 INFO nyx_rest_api_plus - <module>: lib.ext_test
+2023-02-16 14:29:42,266.266 INFO nyx_rest_api_plus - <module>: AMQC_URL          :quantesx-dev-v8.cofelygtc.com
+2023-02-16 14:29:42,281.281 INFO _internal - _log:  * Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)
+2023-02-16 14:29:47,032.032 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:29:47,032.032 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 372}
+2023-02-16 14:29:52,037.037 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:29:52,038.038 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 372}
+2023-02-16 14:29:57,040.040 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:29:57,041.041 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 372}
+2023-02-16 14:30:02,042.042 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:30:02,043.043 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 372}
+2023-02-16 14:30:07,044.044 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:30:07,044.044 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 372}
+2023-02-16 14:30:11,748.748 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:30:12,049.049 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:30:12,050.050 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 372}
+2023-02-16 14:30:17,055.055 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:30:17,055.055 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 372}
+2023-02-16 14:30:22,060.060 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:30:22,060.060 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 372}
+2023-02-16 14:30:27,061.061 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:30:27,061.061 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 372}
+2023-02-16 14:30:31,748.748 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:30:32,066.066 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:30:32,066.066 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:30:37,069.069 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:30:37,070.070 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:30:42,075.075 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:30:42,076.076 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:30:47,080.080 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:30:47,080.080 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:30:51,748.748 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:30:52,083.083 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:30:52,084.084 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:30:57,088.088 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:30:57,089.089 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:31:02,094.094 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:31:02,094.094 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:31:07,099.099 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:31:07,099.099 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:31:11,747.747 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:31:12,102.102 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:31:12,102.102 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:31:17,106.106 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:31:17,107.107 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:31:22,110.110 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:31:22,111.111 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:31:24,172.172 INFO nyx_rest_api_plus - decorated_function: >>> START:/api/v1/status>>>>GET
+2023-02-16 14:31:24,172.172 INFO nyx_rest_api_plus - decorated_function: <<< FINISH:/api/v1/status
+2023-02-16 14:31:24,173.173 INFO _internal - _log: 127.0.0.1 - - [16/Feb/2023 14:31:24] "GET /api/v1/status HTTP/1.1" 200 -
+2023-02-16 14:31:24,322.322 INFO _internal - _log: 127.0.0.1 - - [16/Feb/2023 14:31:24] "GET /favicon.ico HTTP/1.1" 404 -
+2023-02-16 14:31:27,116.116 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:31:27,116.116 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:31:31,747.747 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:31:32,118.118 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:31:32,118.118 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:31:37,123.123 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:31:37,123.123 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:31:42,128.128 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:31:42,129.129 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:31:47,133.133 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:31:47,133.133 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:31:51,750.750 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:31:52,138.138 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:31:52,138.138 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:31:57,142.142 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:31:57,143.143 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:32:02,145.145 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:32:02,146.146 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:32:07,150.150 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:32:07,150.150 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:32:11,750.750 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:32:12,155.155 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:32:12,155.155 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:32:17,158.158 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:32:17,159.159 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:32:22,163.163 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:32:22,164.164 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:32:27,168.168 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:32:27,169.169 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:32:31,747.747 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:32:32,172.172 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:32:32,172.172 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:32:37,174.174 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:32:37,174.174 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:32:42,178.178 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:32:42,178.178 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:32:47,183.183 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:32:47,184.184 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:32:51,748.748 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:32:52,188.188 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:32:52,189.189 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:32:57,189.189 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:32:57,189.189 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:33:02,194.194 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:33:02,194.194 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:33:07,199.199 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:33:07,200.200 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:33:11,747.747 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:33:12,205.205 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:33:12,206.206 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:33:17,210.210 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:33:17,211.211 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:33:22,212.212 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:33:22,212.212 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:33:27,213.213 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:33:27,213.213 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:33:31,746.746 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:33:32,217.217 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:33:32,218.218 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:33:37,221.221 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:33:37,221.221 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:33:42,226.226 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:33:42,226.226 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:33:47,230.230 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:33:47,231.231 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:33:51,747.747 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:33:52,233.233 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:33:52,233.233 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:33:57,238.238 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:33:57,238.238 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:34:02,242.242 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:34:02,242.242 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:34:07,243.243 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:34:07,245.245 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:34:11,752.752 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:34:12,245.245 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:34:12,246.246 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:34:17,249.249 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:34:17,250.250 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:34:22,252.252 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:34:22,252.252 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:34:27,255.255 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:34:27,255.255 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:34:31,746.746 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:34:32,257.257 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:34:32,257.257 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:34:37,258.258 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:34:37,259.259 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:34:42,260.260 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:34:42,423.423 INFO _transport - perform_request: GET https://quantesx-dev-v8.cofelygtc.com:9200/ [status:200 duration:0.163s]
+2023-02-16 14:34:42,424.424 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:34:47,427.427 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:34:47,428.428 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:34:51,746.746 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:34:52,428.428 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:34:52,429.429 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:34:57,432.432 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:34:57,432.432 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:35:02,433.433 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:35:02,434.434 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:35:07,438.438 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:35:07,439.439 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:35:11,746.746 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:35:12,439.439 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:35:12,440.440 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:35:17,441.441 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:35:17,441.441 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:35:22,445.445 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:35:22,446.446 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:35:27,450.450 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:35:27,450.450 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:35:31,746.746 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:35:32,455.455 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:35:32,456.456 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:35:37,460.460 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:35:37,461.461 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:35:42,461.461 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:35:42,462.462 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:35:47,464.464 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:35:47,464.464 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:35:51,746.746 INFO transport - process_frame: Received frame: 'heartbeat', headers={}, len(body)=0
+2023-02-16 14:35:52,468.468 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:35:52,469.469 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:35:57,472.472 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:35:57,473.473 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:36:02,475.475 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:36:02,475.475 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}
+2023-02-16 14:36:07,476.476 INFO nyx_rest_api_plus - handleAPICalls: APIs history
+2023-02-16 14:36:07,477.477 INFO transport - transmit: Sending frame: 'SEND', headers={'destination': '/topic/NYX_MODULE_INFO', 'content-length': 373}

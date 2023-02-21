@@ -33,7 +33,7 @@ import jwt
 import json
 import time
 import uuid
-import flask
+#import flask
 import redis
 import base64
 import prison
@@ -76,7 +76,7 @@ from passlib.hash import pbkdf2_sha256
 from flask import make_response,url_for
 from flask_cors import CORS, cross_origin
 from amqstompclient import amqstompclient
-from flask_restplus import Api, Resource, fields
+from flask_restx import Api, Resource, fields
 from cachetools import cached, TTLCache #,LRUCache
 from flask import Flask, jsonify, request,Blueprint
 from logging.handlers import TimedRotatingFileHandler
