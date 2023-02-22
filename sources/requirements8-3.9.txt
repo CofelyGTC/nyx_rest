@@ -1,4 +1,4 @@
-amqstompclient @ git+https://github.com/julianf19/amqstompclient.git@5550ace65717c083ecff246918868b935a3bc093
+amqstompclient==1.2.0
 aniso8601==9.0.1
 async-timeout==4.0.2
 attrs==22.2.0
@@ -15,6 +15,7 @@ elasticsearch==8.6.2
 Flask==2.2.3
 Flask-Cors==3.0.10
 flask-restx==1.0.6
+gunicorn==20.1.0
 httplib2==0.21.0
 idna==3.4
 importlib-metadata==6.0.0
