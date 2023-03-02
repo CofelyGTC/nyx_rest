@@ -86,7 +86,7 @@ from elasticsearch import Elasticsearch as ES
 #, RequestsHttpConnection as RC
 
 
-VERSION="3.11.4"
+VERSION="3.11.6"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -945,8 +945,11 @@ def computeMenus(usr,token,apptag):
                 logger.warning('we have to update database !!!')
 
                 app_to_index = appl.copy()
-                del app_to_index['rec_id']                
-                es.index(index=app['_index'], doc_type=app['_type'], id=app['_id'], body=app_to_index)
+                del app_to_index['rec_id']   
+                if elkversion!=8:
+                    es.index(index=app['_index'], doc_type=app['_type'], id=app['_id'], body=app_to_index)
+                else:
+                    es.index(index=app['_index'], id=app['_id'], body=app_to_index)    
 
         if appl["category"] not in categories:
             categories[appl["category"]]={"subcategories":{}}
@@ -1937,7 +1940,7 @@ def handleAPICalls():
 
                         messagebody+=json.dumps(action)+"\r\n"
                         messagebody+=json.dumps(api)+"\r\n"
-                    es.bulk(messagebody)
+                    es.bulk(body=messagebody)
             if conn != None:
                 logger.debug("Sending Life Sign")
                 conn.send_life_sign()
