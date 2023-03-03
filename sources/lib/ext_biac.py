@@ -664,9 +664,9 @@ def get_kpi600_value(es, lot, kpi600_technic, month):
             'kpi600_technic': kpi600_technic,
             'lot': lot,
             '@timestamp': start_dt.isoformat(),
-            'kpi601': False,
-            'kpi602': False,
-            'kpi603': False,
+            'kpi601': True,
+            'kpi602': True,
+            'kpi603': True,
             'cancel_by_customer': False
         }
         

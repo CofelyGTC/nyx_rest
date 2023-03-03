@@ -72,7 +72,7 @@ from common import loadData,applyPrivileges,kibanaData,getELKVersion
 from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
-VERSION="3.10.34"
+VERSION="3.11.6"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
