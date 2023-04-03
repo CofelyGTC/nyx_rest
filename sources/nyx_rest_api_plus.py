@@ -933,7 +933,7 @@ def computeMenus(usr,token,apptag):
             old_kibana_url=config.get("url")
 
             config["url"]=compute_kibana_url(dict_dashboard, appl)
-
+            logger.info(config["url"])
             if config.get("filtercolumn") is not None and config.get("filtercolumn")!="" and "filters" in usr["_source"] and len(usr["_source"]["filters"])>0:
                 logger.info('compute kibana url for : '+str(appl.get('title')))
                 config["url"]=clean_kibana_url(config.get('url'),config.get("filtercolumn"),usr["_source"]["filters"])
@@ -945,8 +945,11 @@ def computeMenus(usr,token,apptag):
                 logger.warning('we have to update database !!!')
 
                 app_to_index = appl.copy()
-                del app_to_index['rec_id']                
-                es.index(index=app['_index'], doc_type=app['_type'], id=app['_id'], body=app_to_index)
+                del app_to_index['rec_id']
+                if elkversion==8:
+                    es.index(index=app['_index'], id=app['_id'], document=app_to_index)
+                else:                                
+                    es.index(index=app['_index'], doc_type=app['_type'], id=app['_id'], body=app_to_index)
 
         if appl["category"] not in categories:
             categories[appl["category"]]={"subcategories":{}}
@@ -2105,8 +2108,10 @@ def can_use_indice(indice,user,query):
 def compute_kibana_url(dashboard_dict, appl):
     if appl.get('config').get('kibanaId') is None:
         return appl.get('config').get('url')
-
-    url = "/dashboard/" + appl.get('config')['kibanaId'] + ""
+    if elkversion==8:
+        url = "/" + appl.get('config')['kibanaId'] + ""
+    else:
+        url = "/dashboard/" + appl.get('config')['kibanaId'] + ""
 
     time = "from:now-7d,mode:quick,to:now"
 
@@ -2119,7 +2124,7 @@ def compute_kibana_url(dashboard_dict, appl):
         if 'refreshInterval' in appl.get('timeRefreshValue'): # to handle the transition, we want to keep only the else part
             refresh = appl.get('timeRefreshValue')
         else: 
-            refresh = 'refreshInterval:(pause:!f,value:'+str(appl.get('timeRefreshValue'))+')'
+            refresh = 'refreshInterval:(pause:!f,value:'+str(appl.get('tcimeRefreshValue'))+')'
 
     try:
         dash = dashboard_dict[appl.get('config').get('kibanaId')]
@@ -2127,7 +2132,7 @@ def compute_kibana_url(dashboard_dict, appl):
         logger.error("Unable to compute kibana URL")
         logger.error(appl.get('config'))
         return 'INVALIDURL'
-
+    
     dash_obj = dash.get('_source').get('dashboard')
 
     url += "?embed=true&_g=("+refresh+",time:(" + time +"))"
@@ -2183,10 +2188,15 @@ def compute_kibana_url(dashboard_dict, appl):
     url += "," + query + ",timeRestore:!f,title:Test,viewMode:view)";  
 
     space = ''
-    if dash.get('_source').get('namespace') and dash.get('_source').get('namespace') != 'default':
-        space = 's/' + dash.get('_source').get('namespace')
-
-    return ('./kibananyx/'+space+"/app/kibana#"+url)
+    
+    if elkversion==8:
+        if dash.get('_source').get('namespaces') and dash.get('_source').get('namespaces')[0] != 'default':
+            space = 's/' + dash.get('_source').get('namespaces')[0]
+        return ('./kibananyx/'+space+"/app/dashboards#"+url)
+    else:
+        if dash.get('_source').get('namespace') and dash.get('_source').get('namespace') != 'default':
+            space = 's/' + dash.get('_source').get('namespace')
+        return ('./kibananyx/'+space+"/app/kibana#"+url)
 
 #---------------------------------------------------------------------------
 # get dictionary of dashboards
