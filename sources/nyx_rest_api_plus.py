@@ -33,7 +33,7 @@ import jwt
 import json
 import time
 import uuid
-import flask
+#import flask
 import redis
 import base64
 import prison
@@ -48,7 +48,7 @@ import importlib
 
 import threading
 import cachetools
-import subprocess
+#import subprocess
 import os,logging
 import pandas as pd
 import elasticsearch
@@ -60,13 +60,13 @@ from zipfile import ZipFile
 
 from datetime import datetime
 from datetime import timedelta
-from importlib import resources
+#from importlib import resources
 from common import get_mappings
 
 
-from googleapiclient import discovery
+#from googleapiclient import discovery
 import httplib2
-from oauth2client import client
+#from oauth2client import client
 
 
 
@@ -76,12 +76,12 @@ from passlib.hash import pbkdf2_sha256
 from flask import make_response,url_for
 from flask_cors import CORS, cross_origin
 from amqstompclient import amqstompclient
-from flask_restplus import Api, Resource, fields
-from cachetools import cached, LRUCache, TTLCache
+from flask_restx import Api, Resource, fields
+from cachetools import cached, TTLCache #,LRUCache
 from flask import Flask, jsonify, request,Blueprint
 from logging.handlers import TimedRotatingFileHandler
 from logstash_async.handler import AsynchronousLogstashHandler
-from common import loadData,applyPrivileges,kibanaData,getELKVersion
+from common import loadData,kibanaData,getELKVersion #,applyPrivileges
 from elasticsearch import Elasticsearch as ES
 #, RequestsHttpConnection as RC
 
@@ -933,7 +933,7 @@ def computeMenus(usr,token,apptag):
             old_kibana_url=config.get("url")
 
             config["url"]=compute_kibana_url(dict_dashboard, appl)
-
+            logger.info(config["url"])
             if config.get("filtercolumn") is not None and config.get("filtercolumn")!="" and "filters" in usr["_source"] and len(usr["_source"]["filters"])>0:
                 logger.info('compute kibana url for : '+str(appl.get('title')))
                 config["url"]=clean_kibana_url(config.get('url'),config.get("filtercolumn"),usr["_source"]["filters"])
@@ -945,11 +945,11 @@ def computeMenus(usr,token,apptag):
                 logger.warning('we have to update database !!!')
 
                 app_to_index = appl.copy()
-                del app_to_index['rec_id']   
-                if elkversion!=8:
+                del app_to_index['rec_id']
+                if elkversion==8:
+                    es.index(index=app['_index'], id=app['_id'], document=app_to_index)
+                else:                                
                     es.index(index=app['_index'], doc_type=app['_type'], id=app['_id'], body=app_to_index)
-                else:
-                    es.index(index=app['_index'], id=app['_id'], body=app_to_index)    
 
         if appl["category"] not in categories:
             categories[appl["category"]]={"subcategories":{}}
@@ -2108,8 +2108,10 @@ def can_use_indice(indice,user,query):
 def compute_kibana_url(dashboard_dict, appl):
     if appl.get('config').get('kibanaId') is None:
         return appl.get('config').get('url')
-
-    url = "/dashboard/" + appl.get('config')['kibanaId'] + ""
+    if elkversion==8:
+        url = "/" + appl.get('config')['kibanaId'] + ""
+    else:
+        url = "/dashboard/" + appl.get('config')['kibanaId'] + ""
 
     time = "from:now-7d,mode:quick,to:now"
 
@@ -2122,7 +2124,7 @@ def compute_kibana_url(dashboard_dict, appl):
         if 'refreshInterval' in appl.get('timeRefreshValue'): # to handle the transition, we want to keep only the else part
             refresh = appl.get('timeRefreshValue')
         else: 
-            refresh = 'refreshInterval:(pause:!f,value:'+str(appl.get('timeRefreshValue'))+')'
+            refresh = 'refreshInterval:(pause:!f,value:'+str(appl.get('tcimeRefreshValue'))+')'
 
     try:
         dash = dashboard_dict[appl.get('config').get('kibanaId')]
@@ -2130,7 +2132,7 @@ def compute_kibana_url(dashboard_dict, appl):
         logger.error("Unable to compute kibana URL")
         logger.error(appl.get('config'))
         return 'INVALIDURL'
-
+    
     dash_obj = dash.get('_source').get('dashboard')
 
     url += "?embed=true&_g=("+refresh+",time:(" + time +"))"
@@ -2186,10 +2188,15 @@ def compute_kibana_url(dashboard_dict, appl):
     url += "," + query + ",timeRestore:!f,title:Test,viewMode:view)";  
 
     space = ''
-    if dash.get('_source').get('namespace') and dash.get('_source').get('namespace') != 'default':
-        space = 's/' + dash.get('_source').get('namespace')
-
-    return ('./kibananyx/'+space+"/app/kibana#"+url)
+    
+    if elkversion==8:
+        if dash.get('_source').get('namespaces') and dash.get('_source').get('namespaces')[0] != 'default':
+            space = 's/' + dash.get('_source').get('namespaces')[0]
+        return ('./kibananyx/'+space+"/app/dashboards#"+url)
+    else:
+        if dash.get('_source').get('namespace') and dash.get('_source').get('namespace') != 'default':
+            space = 's/' + dash.get('_source').get('namespace')
+        return ('./kibananyx/'+space+"/app/kibana#"+url)
 
 #---------------------------------------------------------------------------
 # get dictionary of dashboards
