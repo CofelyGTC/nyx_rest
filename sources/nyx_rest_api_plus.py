@@ -86,7 +86,7 @@ from elasticsearch import Elasticsearch as ES
 #, RequestsHttpConnection as RC
 
 
-VERSION="3.11.4"
+VERSION="3.11.6"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -1940,7 +1940,7 @@ def handleAPICalls():
 
                         messagebody+=json.dumps(action)+"\r\n"
                         messagebody+=json.dumps(api)+"\r\n"
-                    es.bulk(messagebody)
+                    es.bulk(body=messagebody)
             if conn != None:
                 logger.debug("Sending Life Sign")
                 conn.send_life_sign()
