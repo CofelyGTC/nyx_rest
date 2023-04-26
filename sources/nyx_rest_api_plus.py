@@ -1825,7 +1825,9 @@ def genericCRUD(index,object,user=None):
 
     if met== 'get':        
         try:
-            if elkversion>6:
+            if elkversion>7:
+                ret=es.get(index=index,id=object).body
+            elif elkversion==7:
                 ret=es.get(index=index,id=object)
             else:
                 ret=es.get(index=index,id=object,doc_type=request.args.get("doc_type","doc"))
