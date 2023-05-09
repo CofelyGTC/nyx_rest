@@ -86,7 +86,7 @@ from elasticsearch import Elasticsearch as ES
 #, RequestsHttpConnection as RC
 
 
-VERSION="3.11.6"
+VERSION="4.1.3"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -1300,6 +1300,7 @@ class loginRest(Resource):
                 setACookie("cerebro",usr["_source"]["privileges"],resp,token)
                 setACookie("kibana",usr["_source"]["privileges"],resp,token)
                 setACookie("logs",usr["_source"]["privileges"],resp,token)
+                setACookie("private",usr["_source"]["privileges"],resp,token)
 
                 pushHistoryToELK(request,0,usr["_source"], str(token),"")
                 return resp
@@ -2194,7 +2195,7 @@ def compute_kibana_url(dashboard_dict, appl):
     if elkversion==8:
         if dash.get('_source').get('namespaces') and dash.get('_source').get('namespaces')[0] != 'default':
             space = 's/' + dash.get('_source').get('namespaces')[0]
-        return ('./kibananyx/'+space+"/app/dashboards#"+url)
+        return ('./kibananyx/'+space+"/app/dashboards#/view"+url)
     else:
         if dash.get('_source').get('namespace') and dash.get('_source').get('namespace') != 'default':
             space = 's/' + dash.get('_source').get('namespace')
