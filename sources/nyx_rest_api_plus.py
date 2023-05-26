@@ -86,7 +86,7 @@ from elasticsearch import Elasticsearch as ES
 #, RequestsHttpConnection as RC
 
 
-VERSION="4.1.5"
+VERSION="4.1.6"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
