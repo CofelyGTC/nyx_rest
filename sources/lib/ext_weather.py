@@ -1,5 +1,5 @@
 import logging
-from flask_restplus import Namespace,Api, Resource, fields
+from flask_restx import Namespace,Api, Resource, fields
 from flask import Flask, jsonify, request
 import json
 import os
