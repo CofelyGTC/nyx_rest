@@ -2277,6 +2277,7 @@ try:
             logger.info("lib."+ext_lib.replace(".py","")) 
 
             module = importlib.import_module("lib."+ext_lib.replace(".py",""))
+            logger.info("test")
             module.config(api,conn,es,redisserver,token_required)
 except:
     logger.info('no lib directory found')
