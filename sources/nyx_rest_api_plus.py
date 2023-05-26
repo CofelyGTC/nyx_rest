@@ -2003,7 +2003,7 @@ def refresh_translations():
     logger.info("Refreshing Translations")    
     if elkversion==7:
         translationsrec=es.search(index="nyx_translation",body={"size":1000})["hits"]["hits"]
-    elif elkversion==8:
+    elif elkversion>7:
         translationsrec=es.search(index="nyx_translation",query={"match_all": {}}, size=1000)["hits"]["hits"]    
     else:
         translationsrec=es.search(index="nyx_translation",body={"size":1000},doc_type="doc")["hits"]["hits"]
@@ -2280,8 +2280,10 @@ try:
             logger.info("lib."+ext_lib.replace(".py","")) 
 
             module = importlib.import_module("lib."+ext_lib.replace(".py",""))
+            logger.info('test')
             module.config(api,conn,es,redisserver,token_required)
-except:
+except Exception as er:
+    logger.info(er)
     logger.info('no lib directory found')
 
 if __name__ != '__main__':
