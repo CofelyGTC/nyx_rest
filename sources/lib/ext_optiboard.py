@@ -26,7 +26,7 @@ def get_carousel_config(es,opti_id):
         logger.info('TRY to retrieve a carousel with this name: '+str(opti_id)+' ...')
         res = es.search(index="nyx_carousel", query={"match":{"name.keyword":{"query":str(opti_id)}}})
 
-        if res is None or res['hits']['total'] == 0:
+        if res is None or res['hits']['total']['value'] == 0:
             raise Exception("carousel not found by name")
 
 
@@ -40,7 +40,7 @@ def get_carousel_config(es,opti_id):
             res = None
             
     
-    if res is not None and res['hits']['total'] > 0:
+    if res is not None and res['hits']['total']['value'] > 0:
         car = res['hits']['hits'][0]
         id_view_array = []
         
