@@ -86,7 +86,7 @@ from elasticsearch import Elasticsearch as ES
 #, RequestsHttpConnection as RC
 
 
-VERSION="4.1.3"
+VERSION="4.1.5"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -2281,8 +2281,8 @@ try:
 
             module = importlib.import_module("lib."+ext_lib.replace(".py",""))
             module.config(api,conn,es,redisserver,token_required)
-except:
-    logger.info('no lib directory found')
+except Exception as e:
+    logger.info(e)
 
 if __name__ != '__main__':
     gunicorn_logger = logging.getLogger("gunicorn.error")
