@@ -10,7 +10,7 @@ import feedparser
 from os import listdir
 from flask import make_response,url_for
 from flask import Flask, jsonify, request,Blueprint
-from flask_restplus import Namespace, Api, Resource, fields
+from flask_restx import Namespace, Api, Resource, fields
 
 print("***>"*100)
 
@@ -24,7 +24,7 @@ def get_carousel_config(es,opti_id):
     res    = None    
     try:
         logger.info('TRY to retrieve a carousel with this name: '+str(opti_id)+' ...')
-        res = es.search(index="nyx_carousel", body={"query":{"match":{"name.keyword":{"query":str(opti_id)}}}})
+        res = es.search(index="nyx_carousel", query={"match":{"name.keyword":{"query":str(opti_id)}}})
 
         if res is None or res['hits']['total'] == 0:
             raise Exception("carousel not found by name")
@@ -34,7 +34,7 @@ def get_carousel_config(es,opti_id):
         logger.info('... failed !')
         try:
             logger.info('TRY to retrieve a carousel with this id: '+str(opti_id)+' ...')
-            res = config=es.get(index="nyx_carousel",doc_type="doc",id=str(opti_id))
+            res = config=es.get(index="nyx_carousel",id=str(opti_id))
         except:
             logger.info('... failed !')
             res = None
@@ -49,7 +49,6 @@ def get_carousel_config(es,opti_id):
 
 
         res_views = es.mget(index = 'nyx_view_carousel',
-                                   doc_type = 'doc',
                                    body = {'ids': id_view_array})
 
         _source = {
@@ -78,7 +77,7 @@ def get_carousel_config(es,opti_id):
     else:
         try:
             logger.info('TRY to retrieve a carRousel with this id: '+str(opti_id)+' ...')
-            config=es.get(index="nyx_carrousel",doc_type="doc",id=str(opti_id))
+            config=es.get(index="nyx_carrousel",id=str(opti_id))
         except:
             logger.info('... failed !')
             return None
@@ -135,7 +134,7 @@ def config(api,conn,es,redis,token_required):
                 logger.info("Token does not exists in redis")
 
                 try:
-                    record=es.get(index="optiboard_token",doc_type="doc",id=guid)
+                    record=es.get(index="optiboard_token",id=guid)
                     logger.info(">="*30)
                     
                     record=record["_source"]
@@ -155,7 +154,7 @@ def config(api,conn,es,redis,token_required):
             redoptiobj["station"]=redoptiobj["optiboard"]
 
             index='optiboard_status-'+datetime.datetime.now().strftime('%Y.%m')
-            es.index(index=index,body=redoptiobj,doc_type="doc")            
+            es.index(index=index,document=redoptiobj)            
 
             return {'error':""}   
 
@@ -175,7 +174,7 @@ def config(api,conn,es,redis,token_required):
                 logger.info("Token does not exists in redis")
 
                 try:
-                    record=es.get(index="optiboard_token",doc_type="doc",id=guid)
+                    record=es.get(index="optiboard_token",id=guid)
                     logger.info(">="*30)
                     
                     record=record["_source"]
@@ -189,8 +188,10 @@ def config(api,conn,es,redis,token_required):
                     logger.info("Record does not exists. Returning error.",exc_info=True)     
                     return {'error':"KO"}
 
-            res=es.search(index="optiboard_command",doc_type="doc",body=
-                    {"from":0,"size":200,"query":{"bool":{"filter":[{"bool":{"must":[{"bool":{"must":[{"term":{"guid.keyword":{"value":guid}}},{"term":{"executed":{"value":0,"boost":1.0}}}]}}]}}]}}}
+            res=es.search(index="optiboard_command",
+                    size=200,
+                    query={"bool":{"filter":[{"bool":{"must":[{"bool":{"must":[{"term":{"guid.keyword":{"value":guid}}},{"term":{"executed":{"value":0,"boost":1.0}}}]}}]}}]},
+                           }
                     )
             logger.info(res)
 
@@ -212,7 +213,7 @@ def config(api,conn,es,redis,token_required):
                     }
                     
 
-                res2=es.update_by_query(body=q, doc_type='doc', index='optiboard_command')
+                res2=es.update_by_query(body=q, index='optiboard_command')
                 logger.info(res2)
 
             return {'error':"OK","commands":commands}            
@@ -235,14 +236,14 @@ def config(api,conn,es,redis,token_required):
             guid=req["guid"]
 
             try:
-                record=es.get(index="optiboard_token",doc_type="doc",id=guid)
+                record=es.get(index="optiboard_token",id=guid)
                 record=record["_source"]
             except:
                 logger.info("Record does not exists. Creating it.")
                 newrecord=req
                 newrecord["accepted"]=0
                 newrecord["@creationtime"]=arrow.utcnow().isoformat().replace("+00:00", "Z")                
-                es.index(index="optiboard_token",doc_type="doc",id=guid,body=newrecord)
+                es.index(index="optiboard_token",id=guid,body=newrecord)
                 record=newrecord
 
             if record["accepted"]==1:
@@ -283,7 +284,7 @@ def config(api,conn,es,redis,token_required):
             guid=request.args["guid"]
             logger.info("GUID="+guid)  
             try:
-                record=es.get(index="optiboard_token",doc_type="doc",id=guid)
+                record=es.get(index="optiboard_token",id=guid)
                 record=record["_source"]
                 token=uuid.uuid4()
                 if record["accepted"]==1:
