@@ -1,5 +1,5 @@
 #/bin/bash
-stfilename="./sources/nyx_rest_api_plus.py"
+filename="./sources/nyx_rest_api_plus.py"
 
 sed -i '' "s#^VERSION=\".*\"#VERSION=\"$1\"#" $filename
 
