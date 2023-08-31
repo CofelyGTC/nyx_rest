@@ -61,7 +61,7 @@ def get_carousel_config(es,opti_id):
                 for j in i['_source']:
                     #print(j)
                     page[j] = i['_source'][j]
-
+                page["_id"] = i["_id"]
                 _source['pages'].append(page)
 
         #print(_source)
@@ -82,6 +82,8 @@ def get_carousel_config(es,opti_id):
             logger.info('... failed !')
             return None
         
+    # print('config["_source"]["pages"]: ', config["_source"]["pages"])
+    print('config: ', config)
     return config["_source"]["pages"]
 
 
@@ -238,6 +240,7 @@ def config(api,conn,es,redis,token_required):
             try:
                 record=es.get(index="optiboard_token",id=guid)
                 record=record["_source"]
+                
             except:
                 logger.info("Record does not exists. Creating it.")
                 newrecord=req
@@ -263,6 +266,7 @@ def config(api,conn,es,redis,token_required):
                         return {'error':"Unable to retrieve carousel",'errorcode':101}            
                         
 
+                logger.info(f'record: {record}')
                 return {'error':"",'rec':record}            
             else:
                 return {'error':"Waiting for approval",'errorcode':100}            
