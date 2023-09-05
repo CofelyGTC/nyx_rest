@@ -53,21 +53,18 @@ import os,logging
 import pandas as pd
 import elasticsearch
 from pathlib import Path
-from flask import Response
 from functools import wraps
-from flask import send_file
+from flask import send_file, Response, session
 from zipfile import ZipFile
+
 
 from datetime import datetime
 from datetime import timedelta
 #from importlib import resources
 from common import get_mappings
 
-
-#from googleapiclient import discovery
-import httplib2
-#from oauth2client import client
-
+from flask_session import Session
+import msal
 
 
 from pg_common import loadPGData
@@ -83,7 +80,6 @@ from logging.handlers import TimedRotatingFileHandler
 from logstash_async.handler import AsynchronousLogstashHandler
 from common import loadData,kibanaData,getELKVersion #,applyPrivileges
 from elasticsearch import Elasticsearch as ES
-#, RequestsHttpConnection as RC
 
 
 VERSION="4.1.7"
@@ -998,175 +994,6 @@ def computeMenus(usr,token,apptag):
     
     return finalcategory
 
-
-#---------------------------------------------------------------------------
-# API login
-#---------------------------------------------------------------------------
-
-@name_space.route('/cred/oauth/<string:action>/<string:social>',methods=['POST'])    
-class loginOAuthRest(Resource):    
-    def post(self,action,social):
-        global tokens
-        logger.info(">> OAUTH LOGIN IN")  
-        data=json.loads(request.data.decode("utf-8"))
-        logger.info(data)  
-
-        post_data={"client_secret":"2997acd1b285d45551ecf6606f53b98b8246717b"
-                    ,"client_id":data["clientId"],"code":data["code"]}
-        
-        r = requests.post('https://github.com/login/oauth/access_token', data = post_data)
-
-        logger.info(r.text)
-        dict = {x[0] : x[1] for x in [x.split("=") for x in r.text.split("&") ]}
-
-        r2=requests.get('https://api.github.com/user?access_token='+dict["access_token"])
-        logger.info(r2.text)
-        
-        r3=requests.get('https://api.github.com/user/emails?access_token='+dict["access_token"])
-        logger.info(r3.text)
-        
-
-        #return jsonify({'authenticated': True,'error':"TATATA","mails":json.loads(r3.text)})
-        token = jwt.encode({
-        'sub': "amarchand@icloud.com",
-        'iat':datetime.utcnow(),
-        'exp': datetime.utcnow() + timedelta(minutes=30)},
-        "2997acd1b285d45551ecf6606f53b98b8246717b")
-
-        #return jsonify({ 'token': token.decode('UTF-8') })
-        return  jsonify({'id': 1,'name':"Arnaud Marchand","email":"amarchand@icloud.com",
-                    "created_at":datetime.utcnow(),"access_token":dict["access_token"]})
-
-
-
-
-loginGoogleAPI = api.model('login_google_model', {
-    'auth_code': fields.String(description="The google auth code.", required=True)
-})
-
-@name_space.route('/cred/login_google',methods=['POST'])    
-class loginGoogleRest(Resource):
-    @api.doc(description="Google login function.")
-    @api.expect(loginGoogleAPI)
-    def post(self):
-        global tokens
-        logger.info(">> LOGIN IN GOOGLE")        
-        try:
-            data=json.loads(request.data.decode("utf-8"))
-
-            auth_code = data['auth_code']
-
-            # CLIENT_SECRET_FILE = './client_secret_859549551906-jf6n8pvjgbtp77kolhofv0ge45ucacbg.apps.googleusercontent.com.json'
-
-            
-            credentials = client.credentials_from_clientsecrets_and_code(os.environ["CLIENT_SECRET_FILE"],
-                                                                        ['profile', 'email'],
-                                                                        auth_code)
-
-            # Call Google API
-            
-            http_auth = credentials.authorize(httplib2.Http())
-
-            cleanlogin=credentials.id_token['email']
-
-            try:
-                if elkversion==7:
-                    usr=es.get(index="nyx_user",id=cleanlogin)
-                else:
-                    usr=es.get(index="nyx_user",doc_type="doc",id=cleanlogin)
-            except:
-                logger.info("Not found")
-                usr=None
-                logger.info("Searching by login")
-                body={"size":"100",
-                        "query": {
-                            "bool": {
-                                "must": [
-                                    {
-                                        "term": {
-                                        "login.keyword": {
-                                            "value": cleanlogin,
-                                            "boost": 1
-                                        }
-                                        }
-                                    }                                    
-                                ]
-                                
-                            }
-                        }
-                    }
-                if elkversion==7:
-                    users=es.search(index="nyx_user",body=body)
-                elif elkversion==8:
-                    users=es.search(index="nyx_user",query=body)    
-                else:
-                    users=es.search(index="nyx_user",doc_type="doc",body=body)
-                #logger.info(users)
-                if "hits" in users and "hits" in users["hits"] and len (users["hits"]["hits"])>0:
-                    usr=users["hits"]["hits"][0]
-
-            logger.info("USR_"*20)
-            logger.info(usr)
-
-            if usr is None:
-                return jsonify({'error':"Bad Credentials"})
-
-
-            token=credentials.access_token
-                        
-            with tokenlock:
-                tokens[str(token)]=usr["_source"]       #TO BE DONE REMOVE PREVIOUS TOKENS OF THIS USER  
-
-            usr["_source"]["password"]=""
-            usr["_source"]["id"]=cleanlogin
-
-            redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*1)
-
-            apptag="console"
-            if "app" in data:
-                apptag=data["app"]
-
-            finalcategory=computeMenus(usr,str(token),apptag)
-
-            all_priv=[]
-            all_filters=[]
-            if "admin" in usr["_source"]["privileges"] or "user" in usr["_source"]["privileges"]:
-                all_priv=[]
-                all_filters=[]
-
-                all_priv = loadData(es,conn,'nyx_privilege',{},'doc',False,(None, None, None)
-                                                ,True,usr['_source'],None,None,None)['records']
-
-                all_filters = loadData(es,conn,'nyx_filter',{},'doc',False,(None, None, None)
-                                                ,True,usr['_source'],None,None,None)['records']
-
-            resp=make_response(jsonify({'version':VERSION,'error':"",'cred':{'token':token,'user':usr["_source"]},
-                                                        "menus":finalcategory,"all_priv":all_priv,"all_filters":all_filters}))
-            resp.set_cookie('nyx_kibananyx', str(token),secure=True,httponly=True)
-
-            setACookie("nodered",usr["_source"]["privileges"],resp,token)
-            setACookie("anaconda",usr["_source"]["privileges"],resp,token)
-            setACookie("cerebro",usr["_source"]["privileges"],resp,token)
-            setACookie("kibana",usr["_source"]["privileges"],resp,token)
-            setACookie("logs",usr["_source"]["privileges"],resp,token)
-            pushHistoryToELK(request,0,usr["_source"], str(token),"")
-            return resp
-
-
-        except Exception as e:
-            logger.error("Unable to verify auth code.")
-            logger.error(e)    
-            return jsonify({'error':"Bad Request"})
-
-        
-
-
-
-
-
-
-
-
 loginAPI = api.model('login_model', {
     'login': fields.String(description="The user login", required=True),
     'password': fields.String(description="The user password.", required=True),
@@ -1416,8 +1243,26 @@ class change_password(Resource):
         else:
             return {"error":"wrongpassword"}
 
-    
+#---------------------------------------------------------------------------
+# Azure Athentification Section
+#---------------------------------------------------------------------------
+def _build_auth_code_flow(authority=None, scopes=None):
+    return _build_msal_app(authority=authority).initiate_auth_code_flow(
+        scopes or [],
+        redirect_uri=url_for("authorized", _external=True))
 
+def _build_msal_app(cache=None, authority=None):
+    return msal.ConfidentialClientApplication(
+        os.environ["AZURE_CLIENT_ID"], authority=authority or app_config.AUTHORITY,
+        client_credential=app_config.CLIENT_SECRET, token_cache=cache)
+
+
+@name_space.route('/azure/getlink')
+class getlink(Resource):
+    def get(self):
+        session["flow"] = _build_auth_code_flow(scopes=app_config.SCOPE)
+
+        return 
 
 #---------------------------------------------------------------------------
 # Upload file
@@ -2256,7 +2101,7 @@ es=None
 logger.info (os.environ["ELK_SSL"])
 
 if os.environ["ELK_SSL"]=="true":
-    host_params = {'host':os.environ["ELK_URL"], 'port':int(os.environ["ELK_PORT"]), 'use_ssl':True}
+    host_params=os.environ["ELK_URL"]
     es = ES([host_params], http_auth=(os.environ["ELK_LOGIN"], os.environ["ELK_PASSWORD"]), verify_certs=False)
 else:
     host_params="http://"+os.environ["ELK_URL"]+":"+os.environ["ELK_PORT"]
