@@ -54,7 +54,7 @@ import pandas as pd
 import elasticsearch
 from pathlib import Path
 from functools import wraps
-from flask import send_file, Response, session
+from flask import send_file, Response, session, redirect
 from zipfile import ZipFile
 
 
@@ -81,7 +81,6 @@ from logstash_async.handler import AsynchronousLogstashHandler
 from common import loadData,kibanaData,getELKVersion #,applyPrivileges
 from elasticsearch import Elasticsearch as ES
 
-
 VERSION="4.1.7"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
@@ -103,7 +102,6 @@ last_indices_refresh=datetime.now()-timedelta(minutes=10)
 translations={}
 last_translation_refresh_seconds=60
 last_translation_refresh=datetime.now()-timedelta(minutes=10)
-
 
 # tokens={}
 tokens=cachetools.TTLCache(maxsize=1000, ttl=5*60)
@@ -135,6 +133,9 @@ logger.info("REST API %s" %(VERSION))
 userActivities=[]
 
 app = Flask(__name__, static_folder='temp', static_url_path='/temp')#, static_url_path='/temp')
+app.config['SESSION_TYPE'] = 'redis'
+Session(app)
+
 blueprint = Blueprint('api', __name__, url_prefix='')
 
 class Custom_API(Api):
@@ -1249,20 +1250,53 @@ class change_password(Resource):
 def _build_auth_code_flow(authority=None, scopes=None):
     return _build_msal_app(authority=authority).initiate_auth_code_flow(
         scopes or [],
-        redirect_uri=url_for("authorized", _external=True))
+        redirect_uri=url_for("api.api/v1_azure_get_token", _external=True))
 
 def _build_msal_app(cache=None, authority=None):
     return msal.ConfidentialClientApplication(
-        os.environ["AZURE_CLIENT_ID"], authority=authority or app_config.AUTHORITY,
-        client_credential=app_config.CLIENT_SECRET, token_cache=cache)
+        os.environ["AZURE_CLIENT_ID"], authority=authority,
+        client_credential=os.environ["AZURE_CLIENT_SECRET"], token_cache=cache)
+
+def _load_cache():
+    cache = msal.SerializableTokenCache()
+    if session.get("token_cache"):
+        cache.deserialize(session["token_cache"])
+    return cache
+
+def _save_cache(cache):
+    if cache.has_state_changed:
+        session["token_cache"] = cache.serialize()
 
 
 @name_space.route('/azure/getlink')
-class getlink(Resource):
+class azureGetLink(Resource):
     def get(self):
-        session["flow"] = _build_auth_code_flow(scopes=app_config.SCOPE)
+        print(url_for("api.api/v1_azure_get_token", _external=True))
+        session["flow"] = _build_auth_code_flow(scopes=["User.Read","email"], authority=os.environ["AZURE_AUTHORITY"])
+        return session["flow"]["auth_uri"], 200
 
-        return 
+@name_space.route('/azure/gettoken')
+class azureGetToken(Resource):
+    def get(self):
+        #try:
+        print(session["flow"])
+        cache = _load_cache()
+        result = _build_msal_app(cache=cache).acquire_token_by_auth_code_flow(
+            session.get("flow", {}), request.args)
+        if "error" in result:
+            return #render_template("auth_error.html", result=result)
+        print(result)
+        session["user"] = result.get("id_token_claims")
+        _save_cache(cache)
+        #except ValueError:  # Usually caused by CSRF
+        #    pass  # Simply ignore them
+        email=session["user"]["email"]
+        try:
+            usr=es.get(index="nyx_user",id=email)
+        except:
+            logger.info("Unkown User: ",email)
+            
+        return session["user"]
 
 #---------------------------------------------------------------------------
 # Upload file
