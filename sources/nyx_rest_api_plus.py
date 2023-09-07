@@ -81,6 +81,9 @@ from logstash_async.handler import AsynchronousLogstashHandler
 from common import loadData,kibanaData,getELKVersion #,applyPrivileges
 from elasticsearch import Elasticsearch as ES
 
+import dotenv
+dotenv.load_dotenv()  # config = {"USER": "foo", "EMAIL": "foo@example.org"}
+
 VERSION="4.1.7"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
@@ -133,7 +136,7 @@ logger.info("REST API %s" %(VERSION))
 userActivities=[]
 
 app = Flask(__name__, static_folder='temp', static_url_path='/temp')#, static_url_path='/temp')
-app.config['SESSION_TYPE'] = 'redis'
+app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
 
 blueprint = Blueprint('api', __name__, url_prefix='')
@@ -159,7 +162,7 @@ CORS(app)
 
 logger.info("Starting redis connection")
 logger.info("IP=>"+os.environ["REDIS_IP"]+"<")
-redisserver = redis.Redis(host=os.environ["REDIS_IP"], port=6379, db=0)
+redisserver = redis.Redis(host=os.environ["REDIS_IP"], port=6379, db=0,)
 OUTPUT_FOLDER=os.environ["OUTPUT_FOLDER"]
 OUTPUT_URL=os.environ["OUTPUT_URL"]
 
@@ -1271,32 +1274,107 @@ def _save_cache(cache):
 @name_space.route('/azure/getlink')
 class azureGetLink(Resource):
     def get(self):
-        print(url_for("api.api/v1_azure_get_token", _external=True))
-        session["flow"] = _build_auth_code_flow(scopes=["User.Read","email"], authority=os.environ["AZURE_AUTHORITY"])
-        return session["flow"]["auth_uri"], 200
+
+        if session.get("user",None):
+            logger.info("SESSSSSSION : ", session.get("user",None))
+        if not session.get("flow", None):
+            session["flow"] = _build_auth_code_flow(scopes=["User.Read","email"], authority=os.environ["AZURE_AUTHORITY"])
+        response = jsonify({"error":"","url":session["flow"]["auth_uri"]})
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
+
+@name_space.route('/azure/logout')
+class azureLogout(Resource):
+    def get(self):
+        return 
 
 @name_space.route('/azure/gettoken')
 class azureGetToken(Resource):
     def get(self):
         #try:
-        print(session["flow"])
+        logger.info("AZUUUUUREEEEEE")
         cache = _load_cache()
-        result = _build_msal_app(cache=cache).acquire_token_by_auth_code_flow(
+        result = _build_msal_app(cache=cache, authority=os.environ["AZURE_AUTHORITY"]).acquire_token_by_auth_code_flow(
             session.get("flow", {}), request.args)
         if "error" in result:
-            return #render_template("auth_error.html", result=result)
-        print(result)
+            return redirect("http://localhost:8080/?azure_login=error&api=http://localhost:5001/api/v1/#/")
+        logger.info(result)
         session["user"] = result.get("id_token_claims")
         _save_cache(cache)
         #except ValueError:  # Usually caused by CSRF
         #    pass  # Simply ignore them
-        email=session["user"]["email"]
-        try:
-            usr=es.get(index="nyx_user",id=email)
-        except:
-            logger.info("Unkown User: ",email)
-            
-        return session["user"]
+        return redirect("http://localhost:8080/?azure_login=successful&api=http://localhost:5001/api/v1/#/")
+
+def login_second_step(usr,data):
+    token=uuid.uuid4()
+    logger.info(getUserFromToken)
+    with tokenlock:
+        tokens[str(token)]=usr["_source"]       #TO BE DONE REMOVE PREVIOUS TOKENS OF THIS USER  
+
+    usr["_source"]["password"]=""
+    usr["_source"]["id"]=data["login"]
+
+    redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
+
+    apptag="console"
+    if "app" in data:
+        apptag=data["app"]
+
+    finalcategory=computeMenus(usr,str(token),apptag)
+
+    all_priv=[]
+    all_filters=[]
+    if "admin" in usr["_source"]["privileges"] or "user" in usr["_source"]["privileges"]:
+        all_priv=[]
+        all_filters=[]
+
+        all_priv = loadData(es,conn,'nyx_privilege',{},'doc',False,(None, None, None)
+                                        ,True,usr['_source'],None,None,None)['records']
+
+        all_filters = loadData(es,conn,'nyx_filter',{},'doc',False,(None, None, None)
+                                        ,True,usr['_source'],None,None,None)['records']
+
+    resp=make_response(jsonify({'version':VERSION,'error':"",'cred':{'token':token,'user':usr["_source"]},
+                                                "menus":finalcategory,"all_priv":all_priv,"all_filters":all_filters}))
+    resp.set_cookie('nyx_kibananyx', str(token),secure=True,httponly=True)
+
+    setACookie("nodered",usr["_source"]["privileges"],resp,token)
+    setACookie("anaconda",usr["_source"]["privileges"],resp,token)
+    setACookie("cerebro",usr["_source"]["privileges"],resp,token)
+    setACookie("kibana",usr["_source"]["privileges"],resp,token)
+    setACookie("logs",usr["_source"]["privileges"],resp,token)
+    setACookie("private",usr["_source"]["privileges"],resp,token)
+
+    pushHistoryToELK(request,0,usr["_source"], str(token),"")
+    return resp
+
+
+@name_space.route('/azure/secondstep')
+class azureSecondStep(Resource):
+    def post(self):
+        user=session.get("user",None)
+        if user == None:
+            return jsonify({'error':"No user found in session"}), 403
+        else:
+            email=user.get("email", None)
+
+            logger.info('email: ', email)
+            if email!=None:
+                try:
+                    usr=es.get(index="nyx_user",id=email)
+                    logger.info("kown User: ",usr)
+                    usr["_source"]["known_user"]=True
+                except:
+                    logger.info("Unkown User: ",email)
+                    usr={"_source":{"known_user":False, 'privileges': []}}
+
+                usr["_source"]["azure_login"]=True
+                data={"login":email}
+                return login_second_step(usr,data)
+
+            else:
+                return jsonify({'error':"No email found"}), 403
+
 
 #---------------------------------------------------------------------------
 # Upload file
@@ -2136,7 +2214,7 @@ logger.info (os.environ["ELK_SSL"])
 
 if os.environ["ELK_SSL"]=="true":
     host_params=os.environ["ELK_URL"]
-    es = ES([host_params], http_auth=(os.environ["ELK_LOGIN"], os.environ["ELK_PASSWORD"]), verify_certs=False)
+    es = ES([host_params], http_auth=(os.environ["ELK_LOGIN"], os.environ["ELK_PASSWORD"]), verify_certs=True)
 else:
     host_params="http://"+os.environ["ELK_URL"]+":"+os.environ["ELK_PORT"]
     es = ES(hosts=[host_params])
