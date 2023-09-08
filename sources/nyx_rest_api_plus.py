@@ -54,7 +54,7 @@ import pandas as pd
 import elasticsearch
 from pathlib import Path
 from functools import wraps
-from flask import send_file, Response, session, redirect
+from flask import send_file, Response, session, redirect, make_response
 from zipfile import ZipFile
 
 
@@ -1301,9 +1301,15 @@ class azureGetToken(Resource):
         logger.info(result)
         session["user"] = result.get("id_token_claims")
         _save_cache(cache)
+        msgraph_endpoint="https://graph.microsoft.com/v1.0/me"
+        token=result["access_token"]
+        me_data=requests.get(msgraph_endpoint,headers={'Authorization': 'Bearer ' + token}).json()
+        session["extra_data"]=me_data
         #except ValueError:  # Usually caused by CSRF
         #    pass  # Simply ignore them
-        return redirect("http://localhost:8080/?azure_login=successful&api=http://localhost:5001/api/v1/#/")
+        response = make_response(redirect("http://localhost:8080?azure_login=successful&api=http://localhost:5001/api/v1/#"))
+        response.set_cookie("session",request.cookies.get("session"))
+        return response
 
 def login_second_step(usr,data):
     token=uuid.uuid4()
@@ -1346,18 +1352,22 @@ def login_second_step(usr,data):
     setACookie("private",usr["_source"]["privileges"],resp,token)
 
     pushHistoryToELK(request,0,usr["_source"], str(token),"")
+
     return resp
 
 
 @name_space.route('/azure/secondstep')
 class azureSecondStep(Resource):
-    def post(self):
+    def get(self):
         user=session.get("user",None)
-        if user == None:
-            return jsonify({'error':"No user found in session"}), 403
+        extra_data=session.get("extra_data",None)
+        if user == None or extra_data==None:
+            logger.info("No user found in session")
+            return jsonify({'error':"No user found in session"}), 400
         else:
             email=user.get("email", None)
-
+            if email==None:
+                email=user.get('preferred_username',None)
             logger.info('email: ', email)
             if email!=None:
                 try:
@@ -1366,14 +1376,24 @@ class azureSecondStep(Resource):
                     usr["_source"]["known_user"]=True
                 except:
                     logger.info("Unkown User: ",email)
-                    usr={"_source":{"known_user":False, 'privileges': []}}
-
+                    usr={"_source":{
+                        "known_user":False, 
+                        'privileges': ["public"], 
+                        'filters': [], 
+                        "language": "en", 
+                        "login":email,
+                        "firstname":extra_data.get("givenName","?"),
+                        "lastname":extra_data.get("surname","?")
+                    }}
                 usr["_source"]["azure_login"]=True
                 data={"login":email}
-                return login_second_step(usr,data)
+
+                resp=login_second_step(usr,data)
+                resp.headers.add('Access-Control-Allow-Credentials', 'true')
+                return resp
 
             else:
-                return jsonify({'error':"No email found"}), 403
+                return jsonify({'error':"No email found"}), 400
 
 
 #---------------------------------------------------------------------------
