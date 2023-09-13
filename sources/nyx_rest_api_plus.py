@@ -136,7 +136,10 @@ logger.info("REST API %s" %(VERSION))
 userActivities=[]
 
 app = Flask(__name__, static_folder='temp', static_url_path='/temp')#, static_url_path='/temp')
-app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_TYPE'] = 'redis'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_REDIS'] = redis.from_url(f"redis://{os.environ['REDIS_IP']}:6379")
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7) 
 Session(app)
 
 blueprint = Blueprint('api', __name__, url_prefix='')
@@ -1271,45 +1274,100 @@ def _save_cache(cache):
         session["token_cache"] = cache.serialize()
 
 
-@name_space.route('/azure/getlink')
+@name_space.route('/checkstate')
 class azureGetLink(Resource):
     def get(self):
-
-        if session.get("user",None):
-            logger.info("SESSSSSSION : ", session.get("user",None))
-        if not session.get("flow", None):
-            session["flow"] = _build_auth_code_flow(scopes=["User.Read","email"], authority=os.environ["AZURE_AUTHORITY"])
-        response = jsonify({"error":"","url":session["flow"]["auth_uri"]})
+        response = Response()
         response.headers.add('Access-Control-Allow-Credentials', 'true')
+        #nyx_kibananyx=request.cookies.get("nyx_kibananyx")
+        #if nyx_kibananyx!=None:
+        #    if redisserver.get(f"nyx_tok_{nyx_kibananyx}")!=None:
+        #        logger.info('signed in already')
+        #        return jsonify({"error":"","signedIn":True})
+        logger.info(session.get("user",None))
+        logger.info(session.get("extra_data",None))
+        if session.get("user")!=None and session.get("extra_data")!=None:
+            logger.info('Azure signed in, going straight to second step')
+            response.data=json.dumps({"error":"","url":"","signedIn":False,"azureSignedIn":True})
+            return response
+        if session.get("flow")==None:
+            session["flow"] = _build_auth_code_flow(scopes=["User.Read","email"], authority=os.environ["AZURE_AUTHORITY"])
+        response.data=json.dumps(json.dumps({"error":"","url":session["flow"]["auth_uri"],"signedIn":False,"azureSignedIn":False}))
         return response
 
-@name_space.route('/azure/logout')
+@name_space.route('/azure/finished')
 class azureLogout(Resource):
     def get(self):
-        return 
+        user=session.get("user",None)
+        extra_data=session.get("extra_data",None)
+        error=session.get("error",None)
+        if error!="":
+            response=jsonify({"error":error,"finished":False})
+        elif user != None or extra_data!=None:
+            response=jsonify({"error":"","finished":True})
+        else:
+            response=jsonify({"error":"","finished":False})
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
 
 @name_space.route('/azure/gettoken')
 class azureGetToken(Resource):
     def get(self):
         #try:
-        logger.info("AZUUUUUREEEEEE")
         cache = _load_cache()
         result = _build_msal_app(cache=cache, authority=os.environ["AZURE_AUTHORITY"]).acquire_token_by_auth_code_flow(
             session.get("flow", {}), request.args)
         if "error" in result:
-            return redirect("http://localhost:8080/?azure_login=error&api=http://localhost:5001/api/v1/#/")
-        logger.info(result)
+            session["error"]=result["error"]
+            return
         session["user"] = result.get("id_token_claims")
         _save_cache(cache)
         msgraph_endpoint="https://graph.microsoft.com/v1.0/me"
         token=result["access_token"]
         me_data=requests.get(msgraph_endpoint,headers={'Authorization': 'Bearer ' + token}).json()
         session["extra_data"]=me_data
-        #except ValueError:  # Usually caused by CSRF
-        #    pass  # Simply ignore them
-        response = make_response(redirect("http://localhost:8080?azure_login=successful&api=http://localhost:5001/api/v1/#"))
-        response.set_cookie("session",request.cookies.get("session"))
-        return response
+        return #response
+
+
+@name_space.route('/azure/secondstep')
+class azureSecondStep(Resource):
+    def get(self):
+        user=session.get("user",None)
+        extra_data=session.get("extra_data",None)
+        if user == None or extra_data==None:
+            logger.info("No user found in session")
+            return jsonify({'error':"No user found in session"}), 400
+        else:
+            email=user.get("email", None)
+            if email==None:
+                email=user.get('preferred_username',None)
+            logger.info('email: ')
+            logger.info(email)
+            if email!=None:
+                try:
+                    usr=es.get(index="nyx_user",id=email)
+                    logger.info("kown User")
+                    usr["_source"]["known_user"]=True
+                except:
+                    logger.info("Unkown User")
+                    usr={"_source":{
+                        "known_user":False, 
+                        'privileges': ["public"], 
+                        'filters': [], 
+                        "language": "en", 
+                        "login":email,
+                        "firstname":extra_data.get("givenName","?"),
+                        "lastname":extra_data.get("surname","?")
+                    }}
+                usr["_source"]["azure_login"]=True
+                data={"login":email}
+
+                resp=login_second_step(usr,data)
+                resp.headers.add('Access-Control-Allow-Credentials', 'true')
+                return resp
+            else:
+                return jsonify({'error':"No email found"}), 400
+
 
 def login_second_step(usr,data):
     token=uuid.uuid4()
@@ -1354,48 +1412,6 @@ def login_second_step(usr,data):
     pushHistoryToELK(request,0,usr["_source"], str(token),"")
 
     return resp
-
-
-@name_space.route('/azure/secondstep')
-class azureSecondStep(Resource):
-    def get(self):
-        user=session.get("user",None)
-        extra_data=session.get("extra_data",None)
-        if user == None or extra_data==None:
-            logger.info("No user found in session")
-            return jsonify({'error':"No user found in session"}), 400
-        else:
-            email=user.get("email", None)
-            if email==None:
-                email=user.get('preferred_username',None)
-            logger.info('email: ', email)
-            if email!=None:
-                try:
-                    usr=es.get(index="nyx_user",id=email)
-                    logger.info("kown User: ",usr)
-                    usr["_source"]["known_user"]=True
-                except:
-                    logger.info("Unkown User: ",email)
-                    usr={"_source":{
-                        "known_user":False, 
-                        'privileges': ["public"], 
-                        'filters': [], 
-                        "language": "en", 
-                        "login":email,
-                        "firstname":extra_data.get("givenName","?"),
-                        "lastname":extra_data.get("surname","?")
-                    }}
-                usr["_source"]["azure_login"]=True
-                data={"login":email}
-
-                resp=login_second_step(usr,data)
-                resp.headers.add('Access-Control-Allow-Credentials', 'true')
-                return resp
-
-            else:
-                return jsonify({'error':"No email found"}), 400
-
-
 #---------------------------------------------------------------------------
 # Upload file
 #---------------------------------------------------------------------------
