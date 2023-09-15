@@ -1292,7 +1292,7 @@ class azureGetLink(Resource):
             return response
         if session.get("flow")==None:
             session["flow"] = _build_auth_code_flow(scopes=["User.Read","email"], authority=os.environ["AZURE_AUTHORITY"])
-        response.data=json.dumps(json.dumps({"error":"","url":session["flow"]["auth_uri"],"signedIn":False,"azureSignedIn":False}))
+        response.data=json.dumps({"error":"","url":session["flow"]["auth_uri"],"signedIn":False,"azureSignedIn":False})
         return response
 
 @name_space.route('/azure/finished')
@@ -1320,6 +1320,8 @@ class azureGetToken(Resource):
         if "error" in result:
             session["error"]=result["error"]
             return
+        else:
+            session["error"]=""
         session["user"] = result.get("id_token_claims")
         _save_cache(cache)
         msgraph_endpoint="https://graph.microsoft.com/v1.0/me"
