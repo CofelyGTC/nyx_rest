@@ -1,35 +1,4 @@
-"""
-v2.11.0 AMA 31/OCT/2019  Fixed a security issue that occured when the login is the mail address and get tokenized.
-v2.12.0 VME 07/JAN/2020  Send a message to delete a token from all instances of the rest api when Logout.
-v2.13.0 VME 23/JAN/2020  TTL tokens dictionnary, to avoid an alive token in the rest api and dead in redis.
-v2.14.0 VME 05/FEB/2020  File system v1
-v2.14.3 AMA 05/FEB/2020  Scrolls IDs are now correctly deleted
-v2.15.0 VME 20/FEB/2020  Login will send all privileges and filters if admin
-v2.15.1 VME 20/FEB/2020  Bug fixing
-v3.0.0  AMA 23/FEB/2020  Compatible with elastic version 7.4.2
-v3.0.1  VME 05/MAR/2020  Redisign of the files end point 
-v3.0.2  VME 15/MAR/2020  Fixed a few postgresql issues
-v3.1.0  VME 15/MAR/2020  Fixed an issue when % character is used in kibana
-v3.3.1  AMA 06/Apr/2020  Fixed a privilege issue for collections with filtered columns
-v3.3.2  AMA 09/Apr/2020  Token added to upload route
-v3.3.3  AMA 10/Apr/2020  Added headers to send message API
-v3.4.0  AMA 15/Apr/2020  Query filter can use elastic seacrh queries
-v3.5.0  VME 15/Apr/2020  passing header "upload_headers" to broker when calling upload endpoint
-v3.6.0  AMA 17/Apr/2020  PG queries can use an offset 
-v3.6.3  AMA 18/Apr/2020  PG queries support ordering
-v3.7.2  AMA 22/Apr/2020  Pagination supported in Elastic Search
-v3.8.0  AMA 07/May/2020  Dynamic query filters
-v3.9.0  AMA 07/May/2020  Lambda rest api added
-v3.9.1  AMA 07/May/2020  App tag added
-v3.10.0 VME 19/May/2020  Elastic version send back to ui (/config)
-v3.10.1 VME 24/Jun/2020  Add querySize parameter for query selecter
-v3.10.2 AMA 15/Jul/2020  Filters and privileges retrieved for user with the "user" privilege
-v3.11.0 AMA 12/Nov/2020  Cookie flags added: secure=True,httponly=True
-v3.12.0 VME 26/Jul/2021  Google Login
-"""
-
 import re
-import jwt
 import json
 import time
 import uuid
@@ -39,7 +8,6 @@ import base64
 import prison
 import random
 import string
-import random
 import dateutil
 # import psycopg2
 import requests
@@ -54,7 +22,7 @@ import pandas as pd
 import elasticsearch
 from pathlib import Path
 from functools import wraps
-from flask import send_file, Response, session, redirect, make_response
+from flask import send_file, Response, session, make_response
 from zipfile import ZipFile
 
 
@@ -65,7 +33,7 @@ from common import get_mappings
 
 from flask_session import Session
 import msal
-
+import psycopg2
 
 from pg_common import loadPGData
 from passlib.hash import pbkdf2_sha256
@@ -81,14 +49,39 @@ from logstash_async.handler import AsynchronousLogstashHandler
 from common import loadData,kibanaData,getELKVersion #,applyPrivileges
 from elasticsearch import Elasticsearch as ES
 
-import dotenv
-dotenv.load_dotenv()  # config = {"USER": "foo", "EMAIL": "foo@example.org"}
+import dotenv, linecache
 
-VERSION="4.1.7"
+    
+def get_ui_version(line_num=None):
+    store_path="./nyx_ui/store/store.js"
+    if(line_num):
+        line=linecache.getline(store_path,line_num)
+        print(line)
+        if(line.find("version")!=-1):
+            UIVERSION=line.split("\"")[1]
+            return line_num, UIVERSION
+
+        
+    f = open(store_path, "r")
+    lines=f.readlines()
+    for i,line in enumerate(lines,start=1):
+        if(line.find("version")!=-1):
+            UIVERSION=line.split("\"")[1]
+            break
+
+    return i, UIVERSION
+
+if os.environ["LOCAL"]=="true":
+    dotenv.load_dotenv()  # config = {"USER": "foo", "EMAIL": "foo@example.org"}
+    line_num, UIVERSION = None, os.environ["UIVERSION"]
+    #line_num, UIVERSION=get_ui_version()
+else:
+    line_num, UIVERSION=get_ui_version()
+
+VERSION="4.2.9"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
-UIVERSION = os.environ["UIVERSION"]
 CLIENT = os.environ["CLIENT"]
 WELCOME=os.environ["WELCOMEMESSAGE"]
 ICON=os.environ["ICON"]
@@ -509,7 +502,7 @@ class lambdasRest(Resource):
 #    @token_required("A1","A2")
     def get(self):        
         logger.info("getting UI Version: "+UIVERSION)
-        
+        get_ui_version(line_num)
         return {'error':"",'status':'ok','version':VERSION,'uiversion':UIVERSION}
 
 
@@ -1094,55 +1087,56 @@ class loginRest(Resource):
                         return jsonify({'error':"Unknown User"})
 
                 logger.info("************* Step 2  **************")
-
-                token=uuid.uuid4()
-
-                logger.info(getUserFromToken)
-                        
-                with tokenlock:
-                    tokens[str(token)]=usr["_source"]       #TO BE DONE REMOVE PREVIOUS TOKENS OF THIS USER  
-
-                usr["_source"]["password"]=""
-                usr["_source"]["id"]=data["login"]
-
-                redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
-
-                apptag="console"
-                if "app" in data:
-                    apptag=data["app"]
-
-                finalcategory=computeMenus(usr,str(token),apptag)
-
-                all_priv=[]
-                all_filters=[]
-                if "admin" in usr["_source"]["privileges"] or "user" in usr["_source"]["privileges"]:
-                    all_priv=[]
-                    all_filters=[]
-
-                    all_priv = loadData(es,conn,'nyx_privilege',{},'doc',False,(None, None, None)
-                                                    ,True,usr['_source'],None,None,None)['records']
-
-                    all_filters = loadData(es,conn,'nyx_filter',{},'doc',False,(None, None, None)
-                                                    ,True,usr['_source'],None,None,None)['records']
-
-                resp=make_response(jsonify({'version':VERSION,'error':"",'cred':{'token':token,'user':usr["_source"]},
-                                                            "menus":finalcategory,"all_priv":all_priv,"all_filters":all_filters}))
-                resp.set_cookie('nyx_kibananyx', str(token),secure=True,httponly=True)
-
-                setACookie("nodered",usr["_source"]["privileges"],resp,token)
-                setACookie("anaconda",usr["_source"]["privileges"],resp,token)
-                setACookie("cerebro",usr["_source"]["privileges"],resp,token)
-                setACookie("kibana",usr["_source"]["privileges"],resp,token)
-                setACookie("logs",usr["_source"]["privileges"],resp,token)
-                setACookie("private",usr["_source"]["privileges"],resp,token)
-
-                pushHistoryToELK(request,0,usr["_source"], str(token),"")
-                return resp
+                return login_second_step(usr,data)
             else:
                 return jsonify({'error':"Bad Credentials"})
 
 
         return jsonify({'error':"Bad Request"})
+    
+def login_second_step(usr,data):
+    token=uuid.uuid4()
+    logger.info(getUserFromToken)
+    with tokenlock:
+        tokens[str(token)]=usr["_source"]       #TO BE DONE REMOVE PREVIOUS TOKENS OF THIS USER  
+
+    usr["_source"]["password"]=""
+    usr["_source"]["id"]=data["login"]
+
+    redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
+
+    apptag="console"
+    if "app" in data:
+        apptag=data["app"]
+
+    finalcategory=computeMenus(usr,str(token),apptag)
+
+    all_priv=[]
+    all_filters=[]
+    if "admin" in usr["_source"]["privileges"] or "user" in usr["_source"]["privileges"]:
+        all_priv=[]
+        all_filters=[]
+
+        all_priv = loadData(es,conn,'nyx_privilege',{},'doc',False,(None, None, None)
+                                        ,True,usr['_source'],None,None,None)['records']
+
+        all_filters = loadData(es,conn,'nyx_filter',{},'doc',False,(None, None, None)
+                                        ,True,usr['_source'],None,None,None)['records']
+
+    resp=make_response(jsonify({'version':VERSION,'error':"",'cred':{'token':token,'user':usr["_source"]},
+                                                "menus":finalcategory,"all_priv":all_priv,"all_filters":all_filters}))
+    resp.set_cookie('nyx_kibananyx', str(token),secure=True,httponly=True)
+
+    setACookie("nodered",usr["_source"]["privileges"],resp,token)
+    setACookie("anaconda",usr["_source"]["privileges"],resp,token)
+    setACookie("cerebro",usr["_source"]["privileges"],resp,token)
+    setACookie("kibana",usr["_source"]["privileges"],resp,token)
+    setACookie("logs",usr["_source"]["privileges"],resp,token)
+    setACookie("private",usr["_source"]["privileges"],resp,token)
+
+    pushHistoryToELK(request,0,usr["_source"], str(token),"")
+
+    return resp
 
 def setACookie(privilege,privileges,resp,token):
     
@@ -1171,7 +1165,11 @@ class logout(Resource):
         
         conn.send_message("/topic/LOGOUT_EVENT",token)
 
-        return {"error":""}
+        session.clear()
+        response=Response()
+        response.data=json.dumps({"error":"","azureLogoutUrl":os.environ["AZURE_AUTHORITY"]+"/oauth2/v2.0/logout"})
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
 
 
 #---------------------------------------------------------------------------
@@ -1256,7 +1254,7 @@ class change_password(Resource):
 def _build_auth_code_flow(authority=None, scopes=None):
     return _build_msal_app(authority=authority).initiate_auth_code_flow(
         scopes or [],
-        redirect_uri=url_for("api.api/v1_azure_get_token", _external=True))
+        redirect_uri=os.environ["AZURE_REDIRECT_URL"])
 
 def _build_msal_app(cache=None, authority=None):
     return msal.ConfidentialClientApplication(
@@ -1371,49 +1369,7 @@ class azureSecondStep(Resource):
                 return jsonify({'error':"No email found"}), 400
 
 
-def login_second_step(usr,data):
-    token=uuid.uuid4()
-    logger.info(getUserFromToken)
-    with tokenlock:
-        tokens[str(token)]=usr["_source"]       #TO BE DONE REMOVE PREVIOUS TOKENS OF THIS USER  
 
-    usr["_source"]["password"]=""
-    usr["_source"]["id"]=data["login"]
-
-    redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
-
-    apptag="console"
-    if "app" in data:
-        apptag=data["app"]
-
-    finalcategory=computeMenus(usr,str(token),apptag)
-
-    all_priv=[]
-    all_filters=[]
-    if "admin" in usr["_source"]["privileges"] or "user" in usr["_source"]["privileges"]:
-        all_priv=[]
-        all_filters=[]
-
-        all_priv = loadData(es,conn,'nyx_privilege',{},'doc',False,(None, None, None)
-                                        ,True,usr['_source'],None,None,None)['records']
-
-        all_filters = loadData(es,conn,'nyx_filter',{},'doc',False,(None, None, None)
-                                        ,True,usr['_source'],None,None,None)['records']
-
-    resp=make_response(jsonify({'version':VERSION,'error':"",'cred':{'token':token,'user':usr["_source"]},
-                                                "menus":finalcategory,"all_priv":all_priv,"all_filters":all_filters}))
-    resp.set_cookie('nyx_kibananyx', str(token),secure=True,httponly=True)
-
-    setACookie("nodered",usr["_source"]["privileges"],resp,token)
-    setACookie("anaconda",usr["_source"]["privileges"],resp,token)
-    setACookie("cerebro",usr["_source"]["privileges"],resp,token)
-    setACookie("kibana",usr["_source"]["privileges"],resp,token)
-    setACookie("logs",usr["_source"]["privileges"],resp,token)
-    setACookie("private",usr["_source"]["privileges"],resp,token)
-
-    pushHistoryToELK(request,0,usr["_source"], str(token),"")
-
-    return resp
 #---------------------------------------------------------------------------
 # Upload file
 #---------------------------------------------------------------------------
