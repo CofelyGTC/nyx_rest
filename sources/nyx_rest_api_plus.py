@@ -22,7 +22,7 @@ import pandas as pd
 import elasticsearch
 from pathlib import Path
 from functools import wraps
-from flask import send_file, Response, session, make_response
+from flask import send_file, Response, session, make_response, redirect
 from zipfile import ZipFile
 
 
@@ -33,7 +33,6 @@ from common import get_mappings
 
 from flask_session import Session
 import msal
-import psycopg2
 
 from pg_common import loadPGData
 from passlib.hash import pbkdf2_sha256
@@ -53,21 +52,29 @@ import dotenv, linecache
 
     
 def get_ui_version(line_num=None):
-    store_path="./nyx_ui/store/store.js"
-    if(line_num):
-        line=linecache.getline(store_path,line_num)
-        print(line)
-        if(line.find("version")!=-1):
-            UIVERSION=line.split("\"")[1]
-            return line_num, UIVERSION
+    try:
+        store_path="./nyx_ui/store/store.js"
+        if(line_num!=-1):
+            line=linecache.getline(store_path,line_num)
+            logger.info("we have line number")
+            if(line.find("version")!=-1):
+                logger.info(f"line found : {line}")
+                UIVERSION=line.split("\"")[1]
+                return line_num, UIVERSION
 
-        
-    f = open(store_path, "r")
-    lines=f.readlines()
-    for i,line in enumerate(lines,start=1):
-        if(line.find("version")!=-1):
-            UIVERSION=line.split("\"")[1]
-            break
+        logger.info("no line number")
+        f = open(store_path, "r")
+        lines=f.readlines()
+        for i,line in enumerate(lines,start=1):
+            if(line.find("version")!=-1):
+                logger.info(f"version found at line: {i} and line is {line}")
+                UIVERSION=line.split("\"")[1]
+                break
+    except Exception as e:
+        logger.info(f"got an error somewhere: error is: {e}")
+        i, UIVERSION = None, os.environ["UIVERSION"]
+        logger.info(f"return is, {i},{UIVERSION}")
+
 
     return i, UIVERSION
 
@@ -75,10 +82,9 @@ if os.environ["LOCAL"]=="true":
     dotenv.load_dotenv()  # config = {"USER": "foo", "EMAIL": "foo@example.org"}
     line_num, UIVERSION = None, os.environ["UIVERSION"]
     #line_num, UIVERSION=get_ui_version()
-else:
-    line_num, UIVERSION=get_ui_version()
+line_num=-1
 
-VERSION="4.2.9"
+VERSION="4.2.17"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -128,7 +134,7 @@ logger.info("REST API %s" %(VERSION))
 
 userActivities=[]
 
-app = Flask(__name__, static_folder='temp', static_url_path='/temp')#, static_url_path='/temp')
+app = Flask(__name__, static_folder='temp', static_url_path='/temp',template_folder="templates")#, static_url_path='/temp')
 app.config['SESSION_TYPE'] = 'redis'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_REDIS'] = redis.from_url(f"redis://{os.environ['REDIS_IP']}:6379")
@@ -500,10 +506,11 @@ class errorRest(Resource):
 @api.doc(description="Get UI version from env.")
 class lambdasRest(Resource):
 #    @token_required("A1","A2")
-    def get(self):        
-        logger.info("getting UI Version: "+UIVERSION)
-        get_ui_version(line_num)
-        return {'error':"",'status':'ok','version':VERSION,'uiversion':UIVERSION}
+    def get(self): 
+        global line_num
+        logger.info("getting UI Version at line: "+str(line_num))
+        line_num, localuiversion = get_ui_version(line_num)
+        return {'error':"",'status':'ok','version':VERSION,'uiversion':localuiversion}
 
 
 
@@ -1326,8 +1333,7 @@ class azureGetToken(Resource):
         token=result["access_token"]
         me_data=requests.get(msgraph_endpoint,headers={'Authorization': 'Bearer ' + token}).json()
         session["extra_data"]=me_data
-        return #response
-
+        return redirect(f"{os.environ['UI_BASE_URL']}loading")
 
 @name_space.route('/azure/secondstep')
 class azureSecondStep(Resource):
