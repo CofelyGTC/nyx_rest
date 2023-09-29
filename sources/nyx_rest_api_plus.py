@@ -25,7 +25,6 @@ from functools import wraps
 from flask import send_file, Response, session, make_response, redirect
 from zipfile import ZipFile
 
-
 from datetime import datetime
 from datetime import timedelta
 #from importlib import resources
@@ -84,7 +83,7 @@ if os.environ["LOCAL"]=="true":
     #line_num, UIVERSION=get_ui_version()
 line_num=-1
 
-VERSION="4.2.17"
+VERSION="4.3.1"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -1179,6 +1178,37 @@ class logout(Resource):
         return response
 
 
+#---------------------------------------------------------------------------
+# Forgotten password
+#---------------------------------------------------------------------------
+
+forgotten_passwordAPI = api.model('reset_password_model', {
+    'login': fields.String(description="The user login", required=True),
+})
+
+@name_space.route('/cred/forgottenpassword')
+class reset_password(Resource):
+    @check_post_parameters("login")
+    @api.doc(description="Resets a user password.")
+    @api.expect(forgotten_passwordAPI)
+    def post(self,user=None):
+        logger.info(">>> Forgotten password");
+        req= json.loads(request.data.decode("utf-8"))  
+        try:
+            usrdb=es.get(index="nyx_user",id=req["login"])
+        except:
+            return {"error":"usernotfound"}
+
+        token=randomString(25)
+
+        usrdb["_source"]["password"]=""
+        usrdb["_source"]["id"]=usrdb["_id"]
+
+        redisserver.set("nyx_tok_"+str(token),json.dumps(usrdb["_source"]),60*10)
+        conn.send_message("/queue/FORGOTTEN_PASSWORD",json.dumps({"byuser":user,"foruser":usrdb["_source"],"newpassword":token})) 
+
+        return {"error":""}
+    
 #---------------------------------------------------------------------------
 # reset password
 #---------------------------------------------------------------------------
