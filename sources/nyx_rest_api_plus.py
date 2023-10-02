@@ -1205,7 +1205,7 @@ class reset_password(Resource):
         usrdb["_source"]["id"]=usrdb["_id"]
 
         redisserver.set("nyx_tok_"+str(token),json.dumps(usrdb["_source"]),60*10)
-        conn.send_message("/queue/FORGOTTEN_PASSWORD",json.dumps({"byuser":user,"foruser":usrdb["_source"],"newpassword":token})) 
+        conn.send_message("/queue/FORGOTTEN_PASSWORD",json.dumps({"byuser":user,"foruser":usrdb["_source"],"token":token})) 
 
         return {"error":""}
     
