@@ -8,7 +8,6 @@ import traceback
 import pandas as pd
 from datetime import datetime
 from datetime import timedelta
-from elasticsearch.client import IndicesClient
 
 from cachetools import cached, LRUCache, TTLCache
 

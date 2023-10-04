@@ -1,2 +1,4 @@
 ./sources/logs
 ./sources/outputs
+./source/.env
+./source/test*

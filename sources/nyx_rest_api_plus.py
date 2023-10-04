@@ -1,35 +1,4 @@
-"""
-v2.11.0 AMA 31/OCT/2019  Fixed a security issue that occured when the login is the mail address and get tokenized.
-v2.12.0 VME 07/JAN/2020  Send a message to delete a token from all instances of the rest api when Logout.
-v2.13.0 VME 23/JAN/2020  TTL tokens dictionnary, to avoid an alive token in the rest api and dead in redis.
-v2.14.0 VME 05/FEB/2020  File system v1
-v2.14.3 AMA 05/FEB/2020  Scrolls IDs are now correctly deleted
-v2.15.0 VME 20/FEB/2020  Login will send all privileges and filters if admin
-v2.15.1 VME 20/FEB/2020  Bug fixing
-v3.0.0  AMA 23/FEB/2020  Compatible with elastic version 7.4.2
-v3.0.1  VME 05/MAR/2020  Redisign of the files end point 
-v3.0.2  VME 15/MAR/2020  Fixed a few postgresql issues
-v3.1.0  VME 15/MAR/2020  Fixed an issue when % character is used in kibana
-v3.3.1  AMA 06/Apr/2020  Fixed a privilege issue for collections with filtered columns
-v3.3.2  AMA 09/Apr/2020  Token added to upload route
-v3.3.3  AMA 10/Apr/2020  Added headers to send message API
-v3.4.0  AMA 15/Apr/2020  Query filter can use elastic seacrh queries
-v3.5.0  VME 15/Apr/2020  passing header "upload_headers" to broker when calling upload endpoint
-v3.6.0  AMA 17/Apr/2020  PG queries can use an offset 
-v3.6.3  AMA 18/Apr/2020  PG queries support ordering
-v3.7.2  AMA 22/Apr/2020  Pagination supported in Elastic Search
-v3.8.0  AMA 07/May/2020  Dynamic query filters
-v3.9.0  AMA 07/May/2020  Lambda rest api added
-v3.9.1  AMA 07/May/2020  App tag added
-v3.10.0 VME 19/May/2020  Elastic version send back to ui (/config)
-v3.10.1 VME 24/Jun/2020  Add querySize parameter for query selecter
-v3.10.2 AMA 15/Jul/2020  Filters and privileges retrieved for user with the "user" privilege
-v3.11.0 AMA 12/Nov/2020  Cookie flags added: secure=True,httponly=True
-v3.12.0 VME 26/Jul/2021  Google Login
-"""
-
 import re
-import jwt
 import json
 import time
 import uuid
@@ -39,7 +8,6 @@ import base64
 import prison
 import random
 import string
-import random
 import dateutil
 # import psycopg2
 import requests
@@ -53,9 +21,8 @@ import os,logging
 import pandas as pd
 import elasticsearch
 from pathlib import Path
-from flask import Response
 from functools import wraps
-from flask import send_file
+from flask import send_file, Response, session, make_response, redirect
 from zipfile import ZipFile
 
 from datetime import datetime
@@ -63,12 +30,8 @@ from datetime import timedelta
 #from importlib import resources
 from common import get_mappings
 
-
-#from googleapiclient import discovery
-import httplib2
-#from oauth2client import client
-
-
+from flask_session import Session
+import msal
 
 from pg_common import loadPGData
 from passlib.hash import pbkdf2_sha256
@@ -83,14 +46,47 @@ from logging.handlers import TimedRotatingFileHandler
 from logstash_async.handler import AsynchronousLogstashHandler
 from common import loadData,kibanaData,getELKVersion #,applyPrivileges
 from elasticsearch import Elasticsearch as ES
-#, RequestsHttpConnection as RC
+
+import dotenv, linecache
+
+    
+def get_ui_version(line_num=None):
+    try:
+        store_path="./nyx_ui/store/store.js"
+        if(line_num!=-1):
+            line=linecache.getline(store_path,line_num)
+            logger.info("we have line number")
+            if(line.find("version")!=-1):
+                logger.info(f"line found : {line}")
+                UIVERSION=line.split("\"")[1]
+                return line_num, UIVERSION
+
+        logger.info("no line number")
+        f = open(store_path, "r")
+        lines=f.readlines()
+        for i,line in enumerate(lines,start=1):
+            if(line.find("version")!=-1):
+                logger.info(f"version found at line: {i} and line is {line}")
+                UIVERSION=line.split("\"")[1]
+                break
+    except Exception as e:
+        logger.info(f"got an error somewhere: error is: {e}")
+        i, UIVERSION = None, os.environ["UIVERSION"]
+        logger.info(f"return is, {i},{UIVERSION}")
 
 
-VERSION="3.11.6"
+    return i, UIVERSION
+
+if os.environ.get("LOCAL")=="true":
+    dotenv.load_dotenv()  # config = {"USER": "foo", "EMAIL": "foo@example.org"}
+    line_num, UIVERSION = None, os.environ["UIVERSION"]
+    #line_num, UIVERSION=get_ui_version()
+line_num=-1
+
+VERSION="4.4.2"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
-UIVERSION = os.environ["UIVERSION"]
 CLIENT = os.environ["CLIENT"]
 WELCOME=os.environ["WELCOMEMESSAGE"]
 ICON=os.environ["ICON"]
@@ -107,7 +103,6 @@ last_indices_refresh=datetime.now()-timedelta(minutes=10)
 translations={}
 last_translation_refresh_seconds=60
 last_translation_refresh=datetime.now()-timedelta(minutes=10)
-
 
 # tokens={}
 tokens=cachetools.TTLCache(maxsize=1000, ttl=5*60)
@@ -138,7 +133,13 @@ logger.info("REST API %s" %(VERSION))
 
 userActivities=[]
 
-app = Flask(__name__, static_folder='temp', static_url_path='/temp')#, static_url_path='/temp')
+app = Flask(__name__, static_folder='temp', static_url_path='/temp',template_folder="templates")#, static_url_path='/temp')
+app.config['SESSION_TYPE'] = 'redis'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_REDIS'] = redis.from_url(f"redis://{os.environ['REDIS_IP']}:6379")
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7) 
+Session(app)
+
 blueprint = Blueprint('api', __name__, url_prefix='')
 
 class Custom_API(Api):
@@ -162,7 +163,7 @@ CORS(app)
 
 logger.info("Starting redis connection")
 logger.info("IP=>"+os.environ["REDIS_IP"]+"<")
-redisserver = redis.Redis(host=os.environ["REDIS_IP"], port=6379, db=0)
+redisserver = redis.Redis(host=os.environ["REDIS_IP"], port=6379, db=0,)
 OUTPUT_FOLDER=os.environ["OUTPUT_FOLDER"]
 OUTPUT_URL=os.environ["OUTPUT_URL"]
 
@@ -504,10 +505,11 @@ class errorRest(Resource):
 @api.doc(description="Get UI version from env.")
 class lambdasRest(Resource):
 #    @token_required("A1","A2")
-    def get(self):        
-        logger.info("getting UI Version: "+UIVERSION)
-        
-        return {'error':"",'status':'ok','version':VERSION,'uiversion':UIVERSION}
+    def get(self): 
+        global line_num
+        logger.info("getting UI Version at line: "+str(line_num))
+        line_num, localuiversion = get_ui_version(line_num)
+        return {'error':"",'status':'ok','version':VERSION,'uiversion':localuiversion}
 
 
 
@@ -998,175 +1000,6 @@ def computeMenus(usr,token,apptag):
     
     return finalcategory
 
-
-#---------------------------------------------------------------------------
-# API login
-#---------------------------------------------------------------------------
-
-@name_space.route('/cred/oauth/<string:action>/<string:social>',methods=['POST'])    
-class loginOAuthRest(Resource):    
-    def post(self,action,social):
-        global tokens
-        logger.info(">> OAUTH LOGIN IN")  
-        data=json.loads(request.data.decode("utf-8"))
-        logger.info(data)  
-
-        post_data={"client_secret":"2997acd1b285d45551ecf6606f53b98b8246717b"
-                    ,"client_id":data["clientId"],"code":data["code"]}
-        
-        r = requests.post('https://github.com/login/oauth/access_token', data = post_data)
-
-        logger.info(r.text)
-        dict = {x[0] : x[1] for x in [x.split("=") for x in r.text.split("&") ]}
-
-        r2=requests.get('https://api.github.com/user?access_token='+dict["access_token"])
-        logger.info(r2.text)
-        
-        r3=requests.get('https://api.github.com/user/emails?access_token='+dict["access_token"])
-        logger.info(r3.text)
-        
-
-        #return jsonify({'authenticated': True,'error':"TATATA","mails":json.loads(r3.text)})
-        token = jwt.encode({
-        'sub': "amarchand@icloud.com",
-        'iat':datetime.utcnow(),
-        'exp': datetime.utcnow() + timedelta(minutes=30)},
-        "2997acd1b285d45551ecf6606f53b98b8246717b")
-
-        #return jsonify({ 'token': token.decode('UTF-8') })
-        return  jsonify({'id': 1,'name':"Arnaud Marchand","email":"amarchand@icloud.com",
-                    "created_at":datetime.utcnow(),"access_token":dict["access_token"]})
-
-
-
-
-loginGoogleAPI = api.model('login_google_model', {
-    'auth_code': fields.String(description="The google auth code.", required=True)
-})
-
-@name_space.route('/cred/login_google',methods=['POST'])    
-class loginGoogleRest(Resource):
-    @api.doc(description="Google login function.")
-    @api.expect(loginGoogleAPI)
-    def post(self):
-        global tokens
-        logger.info(">> LOGIN IN GOOGLE")        
-        try:
-            data=json.loads(request.data.decode("utf-8"))
-
-            auth_code = data['auth_code']
-
-            # CLIENT_SECRET_FILE = './client_secret_859549551906-jf6n8pvjgbtp77kolhofv0ge45ucacbg.apps.googleusercontent.com.json'
-
-            
-            credentials = client.credentials_from_clientsecrets_and_code(os.environ["CLIENT_SECRET_FILE"],
-                                                                        ['profile', 'email'],
-                                                                        auth_code)
-
-            # Call Google API
-            
-            http_auth = credentials.authorize(httplib2.Http())
-
-            cleanlogin=credentials.id_token['email']
-
-            try:
-                if elkversion==7:
-                    usr=es.get(index="nyx_user",id=cleanlogin)
-                else:
-                    usr=es.get(index="nyx_user",doc_type="doc",id=cleanlogin)
-            except:
-                logger.info("Not found")
-                usr=None
-                logger.info("Searching by login")
-                body={"size":"100",
-                        "query": {
-                            "bool": {
-                                "must": [
-                                    {
-                                        "term": {
-                                        "login.keyword": {
-                                            "value": cleanlogin,
-                                            "boost": 1
-                                        }
-                                        }
-                                    }                                    
-                                ]
-                                
-                            }
-                        }
-                    }
-                if elkversion==7:
-                    users=es.search(index="nyx_user",body=body)
-                elif elkversion==8:
-                    users=es.search(index="nyx_user",query=body)    
-                else:
-                    users=es.search(index="nyx_user",doc_type="doc",body=body)
-                #logger.info(users)
-                if "hits" in users and "hits" in users["hits"] and len (users["hits"]["hits"])>0:
-                    usr=users["hits"]["hits"][0]
-
-            logger.info("USR_"*20)
-            logger.info(usr)
-
-            if usr is None:
-                return jsonify({'error':"Bad Credentials"})
-
-
-            token=credentials.access_token
-                        
-            with tokenlock:
-                tokens[str(token)]=usr["_source"]       #TO BE DONE REMOVE PREVIOUS TOKENS OF THIS USER  
-
-            usr["_source"]["password"]=""
-            usr["_source"]["id"]=cleanlogin
-
-            redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*1)
-
-            apptag="console"
-            if "app" in data:
-                apptag=data["app"]
-
-            finalcategory=computeMenus(usr,str(token),apptag)
-
-            all_priv=[]
-            all_filters=[]
-            if "admin" in usr["_source"]["privileges"] or "user" in usr["_source"]["privileges"]:
-                all_priv=[]
-                all_filters=[]
-
-                all_priv = loadData(es,conn,'nyx_privilege',{},'doc',False,(None, None, None)
-                                                ,True,usr['_source'],None,None,None)['records']
-
-                all_filters = loadData(es,conn,'nyx_filter',{},'doc',False,(None, None, None)
-                                                ,True,usr['_source'],None,None,None)['records']
-
-            resp=make_response(jsonify({'version':VERSION,'error':"",'cred':{'token':token,'user':usr["_source"]},
-                                                        "menus":finalcategory,"all_priv":all_priv,"all_filters":all_filters}))
-            resp.set_cookie('nyx_kibananyx', str(token),secure=True,httponly=True)
-
-            setACookie("nodered",usr["_source"]["privileges"],resp,token)
-            setACookie("anaconda",usr["_source"]["privileges"],resp,token)
-            setACookie("cerebro",usr["_source"]["privileges"],resp,token)
-            setACookie("kibana",usr["_source"]["privileges"],resp,token)
-            setACookie("logs",usr["_source"]["privileges"],resp,token)
-            pushHistoryToELK(request,0,usr["_source"], str(token),"")
-            return resp
-
-
-        except Exception as e:
-            logger.error("Unable to verify auth code.")
-            logger.error(e)    
-            return jsonify({'error':"Bad Request"})
-
-        
-
-
-
-
-
-
-
-
 loginAPI = api.model('login_model', {
     'login': fields.String(description="The user login", required=True),
     'password': fields.String(description="The user password.", required=True),
@@ -1260,54 +1093,56 @@ class loginRest(Resource):
                         return jsonify({'error':"Unknown User"})
 
                 logger.info("************* Step 2  **************")
-
-                token=uuid.uuid4()
-
-                logger.info(getUserFromToken)
-                        
-                with tokenlock:
-                    tokens[str(token)]=usr["_source"]       #TO BE DONE REMOVE PREVIOUS TOKENS OF THIS USER  
-
-                usr["_source"]["password"]=""
-                usr["_source"]["id"]=data["login"]
-
-                redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
-
-                apptag="console"
-                if "app" in data:
-                    apptag=data["app"]
-
-                finalcategory=computeMenus(usr,str(token),apptag)
-
-                all_priv=[]
-                all_filters=[]
-                if "admin" in usr["_source"]["privileges"] or "user" in usr["_source"]["privileges"]:
-                    all_priv=[]
-                    all_filters=[]
-
-                    all_priv = loadData(es,conn,'nyx_privilege',{},'doc',False,(None, None, None)
-                                                    ,True,usr['_source'],None,None,None)['records']
-
-                    all_filters = loadData(es,conn,'nyx_filter',{},'doc',False,(None, None, None)
-                                                    ,True,usr['_source'],None,None,None)['records']
-
-                resp=make_response(jsonify({'version':VERSION,'error':"",'cred':{'token':token,'user':usr["_source"]},
-                                                            "menus":finalcategory,"all_priv":all_priv,"all_filters":all_filters}))
-                resp.set_cookie('nyx_kibananyx', str(token),secure=True,httponly=True)
-
-                setACookie("nodered",usr["_source"]["privileges"],resp,token)
-                setACookie("anaconda",usr["_source"]["privileges"],resp,token)
-                setACookie("cerebro",usr["_source"]["privileges"],resp,token)
-                setACookie("kibana",usr["_source"]["privileges"],resp,token)
-                setACookie("logs",usr["_source"]["privileges"],resp,token)
-
-                pushHistoryToELK(request,0,usr["_source"], str(token),"")
-                return resp
+                return login_second_step(usr,data)
             else:
                 return jsonify({'error':"Bad Credentials"})
 
 
         return jsonify({'error':"Bad Request"})
+    
+def login_second_step(usr,data):
+    token=uuid.uuid4()
+    logger.info(getUserFromToken)
+    with tokenlock:
+        tokens[str(token)]=usr["_source"]       #TO BE DONE REMOVE PREVIOUS TOKENS OF THIS USER  
+
+    usr["_source"]["password"]=""
+    usr["_source"]["id"]=data["login"]
+
+    redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
+
+    apptag="console"
+    if "app" in data:
+        apptag=data["app"]
+
+    finalcategory=computeMenus(usr,str(token),apptag)
+
+    all_priv=[]
+    all_filters=[]
+    if "admin" in usr["_source"]["privileges"] or "user" in usr["_source"]["privileges"]:
+        all_priv=[]
+        all_filters=[]
+
+        all_priv = loadData(es,conn,'nyx_privilege',{},'doc',False,(None, None, None)
+                                        ,True,usr['_source'],None,None,None)['records']
+
+        all_filters = loadData(es,conn,'nyx_filter',{},'doc',False,(None, None, None)
+                                        ,True,usr['_source'],None,None,None)['records']
+
+    resp=make_response(jsonify({'version':VERSION,'error':"",'cred':{'token':token,'user':usr["_source"]},
+                                                "menus":finalcategory,"all_priv":all_priv,"all_filters":all_filters}))
+    resp.set_cookie('nyx_kibananyx', str(token),secure=True,httponly=True)
+
+    setACookie("nodered",usr["_source"]["privileges"],resp,token)
+    setACookie("anaconda",usr["_source"]["privileges"],resp,token)
+    setACookie("cerebro",usr["_source"]["privileges"],resp,token)
+    setACookie("kibana",usr["_source"]["privileges"],resp,token)
+    setACookie("logs",usr["_source"]["privileges"],resp,token)
+    setACookie("private",usr["_source"]["privileges"],resp,token)
+
+    pushHistoryToELK(request,0,usr["_source"], str(token),"")
+
+    return resp
 
 def setACookie(privilege,privileges,resp,token):
     
@@ -1336,9 +1171,44 @@ class logout(Resource):
         
         conn.send_message("/topic/LOGOUT_EVENT",token)
 
+        session.clear()
+        response=Response()
+        response.data=json.dumps({"error":"","azureLogoutUrl":os.environ["AZURE_AUTHORITY"]+"/oauth2/v2.0/logout"})
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
+
+
+#---------------------------------------------------------------------------
+# Forgotten password
+#---------------------------------------------------------------------------
+
+forgotten_passwordAPI = api.model('reset_password_model', {
+    'login': fields.String(description="The user login", required=True),
+})
+
+@name_space.route('/cred/forgottenpassword')
+class reset_password(Resource):
+    @check_post_parameters("login")
+    @api.doc(description="Resets a user password.")
+    @api.expect(forgotten_passwordAPI)
+    def post(self,user=None):
+        logger.info(">>> Forgotten password");
+        req= json.loads(request.data.decode("utf-8"))  
+        try:
+            usrdb=es.get(index="nyx_user",id=req["login"])
+        except:
+            return {"error":"usernotfound"}
+
+        token=randomString(25)
+
+        usrdb["_source"]["password"]=""
+        usrdb["_source"]["id"]=usrdb["_id"]
+
+        redisserver.set("nyx_tok_"+str(token),json.dumps(usrdb["_source"]),60*10)
+        conn.send_message("/queue/FORGOTTEN_PASSWORD",json.dumps({"byuser":user,"foruser":usrdb["_source"],"token":token})) 
+
         return {"error":""}
-
-
+    
 #---------------------------------------------------------------------------
 # reset password
 #---------------------------------------------------------------------------
@@ -1350,7 +1220,7 @@ reset_passwordAPI = api.model('reset_password_model', {
 
 @name_space.route('/cred/resetpassword')
 class reset_password(Resource):
-    @token_required("admin","useradmin")
+    @token_required()
     @check_post_parameters("login","new_password")
     @api.doc(description="Resets a user password.",params={'token': 'A valid token'})
     @api.expect(reset_passwordAPI)
@@ -1415,7 +1285,125 @@ class change_password(Resource):
         else:
             return {"error":"wrongpassword"}
 
-    
+#---------------------------------------------------------------------------
+# Azure Athentification Section
+#---------------------------------------------------------------------------
+def _build_auth_code_flow(authority=None, scopes=None):
+    return _build_msal_app(authority=authority).initiate_auth_code_flow(
+        scopes or [],
+        redirect_uri=os.environ["AZURE_REDIRECT_URL"])
+
+def _build_msal_app(cache=None, authority=None):
+    return msal.ConfidentialClientApplication(
+        os.environ["AZURE_CLIENT_ID"], authority=authority,
+        client_credential=os.environ["AZURE_CLIENT_SECRET"], token_cache=cache)
+
+def _load_cache():
+    cache = msal.SerializableTokenCache()
+    if session.get("token_cache"):
+        cache.deserialize(session["token_cache"])
+    return cache
+
+def _save_cache(cache):
+    if cache.has_state_changed:
+        session["token_cache"] = cache.serialize()
+
+
+@name_space.route('/checkstate')
+class azureGetLink(Resource):
+    def get(self):
+        response = Response()
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        #nyx_kibananyx=request.cookies.get("nyx_kibananyx")
+        #if nyx_kibananyx!=None:
+        #    if redisserver.get(f"nyx_tok_{nyx_kibananyx}")!=None:
+        #        logger.info('signed in already')
+        #        return jsonify({"error":"","signedIn":True})
+        logger.info(session.get("user",None))
+        logger.info(session.get("extra_data",None))
+        if session.get("user")!=None and session.get("extra_data")!=None:
+            logger.info('Azure signed in, going straight to second step')
+            response.data=json.dumps({"error":"","url":"","signedIn":False,"azureSignedIn":True})
+            return response
+        if session.get("flow")==None:
+            session["flow"] = _build_auth_code_flow(scopes=["User.Read","email"], authority=os.environ["AZURE_AUTHORITY"])
+        response.data=json.dumps({"error":"","url":session["flow"]["auth_uri"],"signedIn":False,"azureSignedIn":False})
+        return response
+
+@name_space.route('/azure/finished')
+class azureLogout(Resource):
+    def get(self):
+        user=session.get("user",None)
+        extra_data=session.get("extra_data",None)
+        error=session.get("error",None)
+        if error!="":
+            response=jsonify({"error":error,"finished":False})
+        elif user != None or extra_data!=None:
+            response=jsonify({"error":"","finished":True})
+        else:
+            response=jsonify({"error":"","finished":False})
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
+
+@name_space.route('/azure/gettoken')
+class azureGetToken(Resource):
+    def get(self):
+        #try:
+        cache = _load_cache()
+        result = _build_msal_app(cache=cache, authority=os.environ["AZURE_AUTHORITY"]).acquire_token_by_auth_code_flow(
+            session.get("flow", {}), request.args)
+        if "error" in result:
+            session["error"]=result["error"]
+            return
+        else:
+            session["error"]=""
+        session["user"] = result.get("id_token_claims")
+        _save_cache(cache)
+        msgraph_endpoint="https://graph.microsoft.com/v1.0/me"
+        token=result["access_token"]
+        me_data=requests.get(msgraph_endpoint,headers={'Authorization': 'Bearer ' + token}).json()
+        session["extra_data"]=me_data
+        return redirect(f"{os.environ['UI_BASE_URL']}loading")
+
+@name_space.route('/azure/secondstep')
+class azureSecondStep(Resource):
+    def get(self):
+        user=session.get("user",None)
+        extra_data=session.get("extra_data",None)
+        if user == None or extra_data==None:
+            logger.info("No user found in session")
+            return jsonify({'error':"No user found in session"}), 400
+        else:
+            email=user.get("email", None)
+            if email==None:
+                email=user.get('preferred_username',None)
+            logger.info('email: ')
+            logger.info(email)
+            if email!=None:
+                try:
+                    usr=es.get(index="nyx_user",id=email)
+                    logger.info("kown User")
+                    usr["_source"]["known_user"]=True
+                except:
+                    logger.info("Unkown User")
+                    usr={"_source":{
+                        "known_user":False, 
+                        'privileges': ["public"], 
+                        'filters': [], 
+                        "language": "en", 
+                        "login":email,
+                        "firstname":extra_data.get("givenName","?"),
+                        "lastname":extra_data.get("surname","?")
+                    }}
+                usr["_source"]["azure_login"]=True
+                data={"login":email}
+
+                resp=login_second_step(usr,data)
+                resp.headers.add('Access-Control-Allow-Credentials', 'true')
+                return resp
+            else:
+                return jsonify({'error':"No email found"}), 400
+
 
 
 #---------------------------------------------------------------------------
@@ -1825,7 +1813,9 @@ def genericCRUD(index,object,user=None):
 
     if met== 'get':        
         try:
-            if elkversion>6:
+            if elkversion>7:
+                ret=es.get(index=index,id=object).body
+            elif elkversion==7:
                 ret=es.get(index=index,id=object)
             else:
                 ret=es.get(index=index,id=object,doc_type=request.args.get("doc_type","doc"))
@@ -2000,7 +1990,7 @@ def refresh_translations():
     logger.info("Refreshing Translations")    
     if elkversion==7:
         translationsrec=es.search(index="nyx_translation",body={"size":1000})["hits"]["hits"]
-    elif elkversion==8:
+    elif elkversion>7:
         translationsrec=es.search(index="nyx_translation",query={"match_all": {}}, size=1000)["hits"]["hits"]    
     else:
         translationsrec=es.search(index="nyx_translation",body={"size":1000},doc_type="doc")["hits"]["hits"]
@@ -2192,7 +2182,7 @@ def compute_kibana_url(dashboard_dict, appl):
     if elkversion==8:
         if dash.get('_source').get('namespaces') and dash.get('_source').get('namespaces')[0] != 'default':
             space = 's/' + dash.get('_source').get('namespaces')[0]
-        return ('./kibananyx/'+space+"/app/dashboards#"+url)
+        return ('./kibananyx/'+space+"/app/dashboards#/view"+url)
     else:
         if dash.get('_source').get('namespace') and dash.get('_source').get('namespace') != 'default':
             space = 's/' + dash.get('_source').get('namespace')
@@ -2253,8 +2243,8 @@ es=None
 logger.info (os.environ["ELK_SSL"])
 
 if os.environ["ELK_SSL"]=="true":
-    host_params = {'host':os.environ["ELK_URL"], 'port':int(os.environ["ELK_PORT"]), 'use_ssl':True}
-    es = ES([host_params], http_auth=(os.environ["ELK_LOGIN"], os.environ["ELK_PASSWORD"]), verify_certs=False)
+    host_params=os.environ["ELK_URL"]
+    es = ES([host_params], http_auth=(os.environ["ELK_LOGIN"], os.environ["ELK_PASSWORD"]), verify_certs=True)
 else:
     host_params="http://"+os.environ["ELK_URL"]+":"+os.environ["ELK_PORT"]
     es = ES(hosts=[host_params])
@@ -2277,9 +2267,10 @@ try:
             logger.info("lib."+ext_lib.replace(".py","")) 
 
             module = importlib.import_module("lib."+ext_lib.replace(".py",""))
-            logger.info("test")
+            logger.info('test')
             module.config(api,conn,es,redisserver,token_required)
-except:
+except Exception as er:
+    logger.info(er)
     logger.info('no lib directory found')
 
 if __name__ != '__main__':
