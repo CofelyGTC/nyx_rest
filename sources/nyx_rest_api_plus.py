@@ -77,13 +77,13 @@ def get_ui_version(line_num=None):
 
     return i, UIVERSION
 
-if os.environ["LOCAL"]=="true":
+if os.environ.get("LOCAL")=="true":
     dotenv.load_dotenv()  # config = {"USER": "foo", "EMAIL": "foo@example.org"}
     line_num, UIVERSION = None, os.environ["UIVERSION"]
     #line_num, UIVERSION=get_ui_version()
 line_num=-1
 
-VERSION="4.3.1"
+VERSION="4.4.2"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -1220,7 +1220,7 @@ reset_passwordAPI = api.model('reset_password_model', {
 
 @name_space.route('/cred/resetpassword')
 class reset_password(Resource):
-    @token_required("admin","useradmin")
+    @token_required()
     @check_post_parameters("login","new_password")
     @api.doc(description="Resets a user password.",params={'token': 'A valid token'})
     @api.expect(reset_passwordAPI)
