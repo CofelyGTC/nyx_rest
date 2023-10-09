@@ -1,6 +1,6 @@
 #/bin/bash
 filename="./sources/nyx_rest_api_plus.py"
-VERSION="4.4.2"
+VERSION="4.4.6"
 
 sed -i '' "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename
 
@@ -15,5 +15,7 @@ docker push engiecofely/nyx_restapi_8:v$VERSION
 #   4.2.5   JFI Env redirect url
 #   4.2.7   JFI Automatic UI version read
 #   4.2.9   JFI Added Azure logout logic
+#   4.4.2   JFI Password reset added
+#   4.4.3   JFI Merged
 
 
