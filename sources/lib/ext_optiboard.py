@@ -61,7 +61,7 @@ def get_carousel_config(es,opti_id):
                 for j in i['_source']:
                     #print(j)
                     page[j] = i['_source'][j]
-
+                page["_id"] = i["_id"]
                 _source['pages'].append(page)
 
         #print(_source)
