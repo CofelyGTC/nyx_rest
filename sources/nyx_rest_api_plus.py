@@ -83,7 +83,7 @@ if os.environ.get("LOCAL")=="true":
     #line_num, UIVERSION=get_ui_version()
 line_num=-1
 
-VERSION="4.4.2"
+VERSION="4.4.6"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -1288,10 +1288,10 @@ class change_password(Resource):
 #---------------------------------------------------------------------------
 # Azure Athentification Section
 #---------------------------------------------------------------------------
-def _build_auth_code_flow(authority=None, scopes=None):
+def _build_auth_code_flow(authority=None, scopes=None, request_url=None):
     return _build_msal_app(authority=authority).initiate_auth_code_flow(
         scopes or [],
-        redirect_uri=os.environ["AZURE_REDIRECT_URL"])
+        redirect_uri=request_url)
 
 def _build_msal_app(cache=None, authority=None):
     return msal.ConfidentialClientApplication(
@@ -1319,14 +1319,20 @@ class azureGetLink(Resource):
         #    if redisserver.get(f"nyx_tok_{nyx_kibananyx}")!=None:
         #        logger.info('signed in already')
         #        return jsonify({"error":"","signedIn":True})
+        logged_out=request.args.get("loggedout")
         logger.info(session.get("user",None))
         logger.info(session.get("extra_data",None))
-        if session.get("user")!=None and session.get("extra_data")!=None:
+        if session.get("user")!=None and session.get("extra_data")!=None and logged_out!="true":
             logger.info('Azure signed in, going straight to second step')
             response.data=json.dumps({"error":"","url":"","signedIn":False,"azureSignedIn":True})
             return response
         if session.get("flow")==None:
-            session["flow"] = _build_auth_code_flow(scopes=["User.Read","email"], authority=os.environ["AZURE_AUTHORITY"])
+            host_url=request.headers["Referer"]
+            endpoint=os.environ['AZURE_REDIRECT_ENDPOINT'][1:] if os.environ['AZURE_REDIRECT_ENDPOINT'][0]=="/" else os.environ['AZURE_REDIRECT_ENDPOINT'] 
+            if os.environ.get("LOCAL")=="true":
+                host_url=""
+                endpoint=os.environ["AZURE_REDIRECT_ENDPOINT"]
+            session["flow"] = _build_auth_code_flow(scopes=["User.Read","email"], authority=os.environ["AZURE_AUTHORITY"], request_url=f"{host_url}{endpoint}")
         response.data=json.dumps({"error":"","url":session["flow"]["auth_uri"],"signedIn":False,"azureSignedIn":False})
         return response
 
