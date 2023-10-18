@@ -36,7 +36,9 @@ packaging==23.0
 pandas==1.5.3
 passlib==1.7.4
 prison==0.2.1
+psycopg2-binary==2.9.9
 pycparser==2.21
+PyJWT==2.8.0
 pylogbeat==2.0.0
 pyparsing==3.0.9
 pyrsistent==0.19.3
