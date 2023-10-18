@@ -1,8 +1,9 @@
 #/bin/bash
 filename="./sources/nyx_rest_api_plus.py"
-VERSION="4.4.6"
+VERSION="4.4.10"
 
-sed -i '' "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename
+sed -i "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For Windows
+sed -i '' "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For MACOS
 
 
 docker build -t engiecofely/nyx_restapi_8:v$VERSION -f Dockerfile .
@@ -17,5 +18,6 @@ docker push engiecofely/nyx_restapi_8:v$VERSION
 #   4.2.9   JFI Added Azure logout logic
 #   4.4.2   JFI Password reset added
 #   4.4.3   JFI Merged
+#   4.4.10  JFI updated Postrges
 
 

@@ -9,7 +9,7 @@ import prison
 import random
 import string
 import dateutil
-# import psycopg2
+import psycopg2
 import requests
 import operator
 import importlib
@@ -83,7 +83,7 @@ if os.environ.get("LOCAL")=="true":
     #line_num, UIVERSION=get_ui_version()
 line_num=-1
 
-VERSION="4.4.6"
+VERSION="4.4.10"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
