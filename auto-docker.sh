@@ -1,6 +1,6 @@
 #/bin/bash
 filename="./sources/nyx_rest_api_plus.py"
-VERSION="4.4.10"
+VERSION="4.4.14"
 
 sed -i "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For Windows
 sed -i '' "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For MACOS

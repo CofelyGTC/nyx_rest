@@ -83,7 +83,7 @@ if os.environ.get("LOCAL")=="true":
     #line_num, UIVERSION=get_ui_version()
 line_num=-1
 
-VERSION="4.4.10"
+VERSION="4.4.14"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -299,15 +299,15 @@ def getUserFromToken(request):
         if token in tokens:
             return tokens[token]
         redusr=redisserver.get("nyx_tok_"+token)
-        logger.info("nyx_fulltok_"+token)
+        #logger.info("nyx_fulltok_"+token)
         if redusr!=None:
-            logger.info("Retrieved user "+token+ " from redis.")
+            #logger.info("Retrieved user "+token+ " from redis.")
             redusrobj=json.loads(redusr)
             tokens[token]=redusrobj
             logger.info("Token reinitialized from redis cluster.")
             return redusrobj
-
-    logger.info("Invalid Token:"+token)
+    logger.info("Invalid Token")
+    #logger.info("Invalid Token:"+token)
     return None
 
 
@@ -1732,7 +1732,7 @@ def pg_genericCRUD(index,col,pkey,user=None):
     logger.info("PG Generic Table="+index+" Col:"+col+" Pkey:"+ pkey+" Method:"+met);    
 
     if met== 'get':   
-        query="select * from "+index+ " where "+col+"="+str(pkey)
+        query="select * from "+index+ " where \""+col+"\"="+str(pkey)
 
         description=None
         with get_postgres_connection().cursor() as cursor:
@@ -1742,8 +1742,8 @@ def pg_genericCRUD(index,col,pkey,user=None):
             
             res2={}
             for index,x in enumerate(cursor.description):
-                if x[1] in [1082,1184,1114]:
-                    print(res[index])
+                if (x[1] in [1082,1184,1114]) and (res[index]!=None):
+                    #print(res[index])
                     res2[x[0]]=res[index].isoformat()
                 else:
                     res2[x[0]]=res[index]
