@@ -1,6 +1,6 @@
 #/bin/bash
 filename="./sources/nyx_rest_api_plus.py"
-VERSION="4.4.14"
+VERSION="4.4.15"
 
 sed -i "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For Windows
 sed -i '' "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For MACOS
@@ -19,5 +19,6 @@ docker push engiecofely/nyx_restapi_8:v$VERSION
 #   4.4.2   JFI Password reset added
 #   4.4.3   JFI Merged
 #   4.4.10  JFI updated Postrges
+#   4.4.15  EBU Optiboard Get Carousel
 
 
