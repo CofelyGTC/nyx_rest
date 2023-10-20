@@ -18,8 +18,7 @@ logger=logging.getLogger()
 
 # api = Namespace('optiboard', description='Optiboard APIs')
 
-def get_carousel_config(es,opti_id):
-    
+def get_carousel_config(es,opti_id):    
     config = None
     res    = None    
     try:
@@ -216,7 +215,47 @@ def config(api,conn,es,redis,token_required):
                 res2=es.update_by_query(body=q, index='optiboard_command')
                 logger.info(res2)
 
-            return {'error':"OK","commands":commands}            
+            return {'error':"OK","commands":commands} 
+                   
+    #---------------------------------------------------------------------------
+    # API GETCAROUSEL
+    #---------------------------------------------------------------------------
+    @api.route('/api/v1/ext/optiboard/getcarousel')
+    @api.doc(description="User get carousel", params={'carousel': 'A carousel id'})
+    class optiboardGetCarousel(Resource):
+        def get(self):
+            logger.info("User get carousel.")
+            carouselID=request.args["carousel"]
+            try:
+                carousel=es.get(index="nyx_carousel",id=carouselID)
+                carousel=carousel["_source"]
+                logger.info(carousel)
+                record = {}
+                if "id_array" in carousel:
+                    if "rss" in record:
+                        record["rss_feed"]=loadRss(record["rss"])
+                    if "weather" in record:
+                        record["language"]= record["weather"]["language"]
+                        record["weather"]=get_weather(record["weather"]["apikey"], record["weather"]["language"],record["weather"]["location"])
+                    res_views = es.mget(
+                        index = 'nyx_view_carousel',
+                        body = {'ids': [ids["id"] for ids in carousel["id_array"]]}
+                    )
+                    record["carrousel"]=res_views
+                    pages = []
+                    for i in res_views['docs']:
+                        page = {}
+                        if '_source' in i:
+                            for j in i['_source']:
+                                #print(j)
+                                page[j] = i['_source'][j]
+                            page["_id"] = i["_id"]
+                            pages.append(page)
+                    record["carrousel"]=pages
+                return {'error':"",'rec':record}
+            except:
+                logger.info("Not carousel find.")
+                return {'error':"Not carousel find.",'errorcode':500}  
 
     #---------------------------------------------------------------------------
     # API GETCONFIG
@@ -224,7 +263,6 @@ def config(api,conn,es,redis,token_required):
     getConfigAPI = api.model('getConfig_model', {
         'guid': fields.String(description="A screen guid", required=False)
     })
-    
     @api.route('/api/v1/ext/optiboard/getconfig')
     @api.doc(description="Optiboard get Config")
     class optiboardGetConfig(Resource):   
@@ -234,7 +272,6 @@ def config(api,conn,es,redis,token_required):
             req= json.loads(request.data.decode("utf-8"))  
             logger.info(req)
             guid=req["guid"]
-
             try:
                 record=es.get(index="optiboard_token",id=guid)
                 record=record["_source"]
@@ -242,33 +279,23 @@ def config(api,conn,es,redis,token_required):
                 logger.info("Record does not exists. Creating it.")
                 newrecord=req
                 newrecord["accepted"]=0
-                newrecord["@creationtime"]=arrow.utcnow().isoformat().replace("+00:00", "Z")                
+                newrecord["@creationtime"]=arrow.utcnow().isoformat().replace("+00:00", "Z")
                 es.index(index="optiboard_token",id=guid,body=newrecord)
                 record=newrecord
-
             if record["accepted"]==1:
                 logger.info("Record is valid")
                 if "rss" in record:
                     record["rss_feed"]=loadRss(record["rss"])
-
                 if "weather" in record:
                     record["language"]= record["weather"]["language"]
                     record["weather"]=get_weather(record["weather"]["apikey"], record["weather"]["language"],record["weather"]["location"])
-                    
-
                 if "carrousel" in record:
                     record["carrousel"]=get_carousel_config(es,record["carrousel"])
-
                     if record['carrousel'] is None: 
-                        return {'error':"Unable to retrieve carousel",'errorcode':101}            
-                        
-
+                        return {'error':"Unable to retrieve carousel",'errorcode':101}
                 return {'error':"",'rec':record}            
             else:
                 return {'error':"Waiting for approval",'errorcode':100}            
-
-
-
             return {'error':"Unknown error",'errorcode':99}   
         
 
@@ -297,6 +324,4 @@ def config(api,conn,es,redis,token_required):
                 return resp
             except Exception as e:
                 logger.info("Record does not exists. Ignoring request.",exc_info=1)
-                
-
-            return {'error':"Unknown error",'errorcode':99}                    
+            return {'error':"Unknown error",'errorcode':99}
