@@ -1732,7 +1732,7 @@ def pg_genericCRUD(index,col,pkey,user=None):
     logger.info("PG Generic Table="+index+" Col:"+col+" Pkey:"+ pkey+" Method:"+met);    
 
     if met== 'get':   
-        query="select * from "+index+ " where \""+col+"\"="+str(pkey)
+        query="select * from "+index+ " where '"+col+"'="+str(pkey)
 
         description=None
         with get_postgres_connection().cursor() as cursor:
@@ -1759,10 +1759,10 @@ def pg_genericCRUD(index,col,pkey,user=None):
         
         if pkey!="NEW":
             query="UPDATE "+index+" set "
-            cols=",".join([""+str(_["key"])+"='"+str(_["value"])+"' " for _ in data["record"]])
+            cols=",".join(["'"+str(_["key"])+"'='"+str(_["value"])+"' " for _ in data["record"]])
             query+=cols
 
-            query+=" where "+col+"="+str(pkey)
+            query+=" where '"+col+"'="+str(pkey)
             logger.info(query)
             with get_postgres_connection().cursor() as cursor:
                 res=cursor.execute(query)
@@ -1770,7 +1770,7 @@ def pg_genericCRUD(index,col,pkey,user=None):
             pg_connection.commit()
         else:
             query="INSERT INTO "+index+"  "
-            cols=",".join([""+str(_["key"])+"" for _ in data["record"]])
+            cols=",".join(["'"+str(_["key"])+"'" for _ in data["record"]])
             query+="("+cols+") VALUES ("
             vals=",".join(["'"+str(_["value"])+"'" for _ in data["record"]])
             query+=vals+")"
