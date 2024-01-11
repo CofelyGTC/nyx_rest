@@ -54,6 +54,7 @@ def get_ui_version(line_num=None):
     try:
         store_path="./nyx_ui/store/store.js"
         if(line_num!=-1):
+            linecache.checkcache()
             line=linecache.getline(store_path,line_num)
             logger.info("we have line number")
             if(line.find("version")!=-1):
@@ -83,7 +84,7 @@ if os.environ.get("LOCAL")=="true":
     #line_num, UIVERSION=get_ui_version()
 line_num=-1
 
-VERSION="4.4.19"
+VERSION="4.4.20"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
