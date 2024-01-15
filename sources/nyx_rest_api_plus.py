@@ -48,6 +48,7 @@ from common import loadData,kibanaData,getELKVersion #,applyPrivileges
 from elasticsearch import Elasticsearch as ES
 
 import dotenv, linecache
+dotenv.load_dotenv()
 
     
 def get_ui_version(line_num=None):
@@ -83,11 +84,12 @@ if os.environ.get("LOCAL")=="true":
     #line_num, UIVERSION=get_ui_version()
 line_num=-1
 
-VERSION="4.4.19"
+VERSION="4.4.21"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
 CLIENT = os.environ["CLIENT"]
+TITLE=os.environ["TITLE"]
 WELCOME=os.environ["WELCOMEMESSAGE"]
 ICON=os.environ["ICON"]
 
@@ -473,7 +475,7 @@ class lambdasRest(Resource):
 class configRest(Resource):    
     def get(self):
         logger.info("Config called")
-        return {'error':"",'status':'ok','version':VERSION,'welcome':WELCOME,'icon':ICON, 'elastic_version':elkversion}
+        return {'error':"",'status':'ok','version':VERSION,'welcome':WELCOME,'icon':ICON, 'elastic_version':elkversion, "title": TITLE}
 
 
 #---------------------------------------------------------------------------
