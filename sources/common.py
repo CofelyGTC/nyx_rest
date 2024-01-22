@@ -234,7 +234,7 @@ def loadData(es,conn,index,data,doc_type,download,cui,is_rest_api,user,outputfor
             response = es.search(
                 index=index,
                 body=data,
-                scroll='1m',
+                # scroll='1m',
             )  
 
         else:
