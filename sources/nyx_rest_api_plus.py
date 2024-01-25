@@ -85,7 +85,7 @@ if os.environ.get("LOCAL")=="true":
     #line_num, UIVERSION=get_ui_version()
 line_num=-1
 
-VERSION="4.4.22"
+VERSION="4.4.23"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -1317,6 +1317,9 @@ class azureGetLink(Resource):
     def get(self):
         response = Response()
         response.headers.add('Access-Control-Allow-Credentials', 'true')
+        if os.environ.get("SKIP_ACTIVE_DIRECTORY",False):
+            response.data=json.dumps({"error":"","skipActiveDirectory":True})
+            return response
         #nyx_kibananyx=request.cookies.get("nyx_kibananyx")
         #if nyx_kibananyx!=None:
         #    if redisserver.get(f"nyx_tok_{nyx_kibananyx}")!=None:
