@@ -1,6 +1,6 @@
 #/bin/bash
 filename="./sources/nyx_rest_api_plus.py"
-VERSION="4.4.20"
+VERSION="4.4.22"
 
 sed -i "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For Windows
 sed -i '' "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For MACOS
@@ -20,6 +20,7 @@ docker push engiecofely/nyx_restapi_8:v$VERSION
 #   4.4.3   JFI Merged
 #   4.4.10  JFI updated Postrges
 #   4.4.15  EBU Optiboard Get Carousel
-
+#   4.4.21  EBU Add Title as env variable
+#   4.4.22  EBU Security Update && Debug load data multiple pages
 
 
