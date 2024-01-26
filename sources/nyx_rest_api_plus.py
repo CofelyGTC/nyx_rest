@@ -1320,27 +1320,28 @@ class azureGetLink(Resource):
         if os.environ.get("SKIP_ACTIVE_DIRECTORY",False):
             response.data=json.dumps({"error":"","skipActiveDirectory":True})
             return response
-        #nyx_kibananyx=request.cookies.get("nyx_kibananyx")
-        #if nyx_kibananyx!=None:
-        #    if redisserver.get(f"nyx_tok_{nyx_kibananyx}")!=None:
-        #        logger.info('signed in already')
-        #        return jsonify({"error":"","signedIn":True})
-        logged_out=request.args.get("loggedout")
-        logger.info(session.get("user",None))
-        logger.info(session.get("extra_data",None))
-        if session.get("user")!=None and session.get("extra_data")!=None and logged_out!="true":
-            logger.info('Azure signed in, going straight to second step')
-            response.data=json.dumps({"error":"","url":"","signedIn":False,"azureSignedIn":True})
+        else:
+            #nyx_kibananyx=request.cookies.get("nyx_kibananyx")
+            #if nyx_kibananyx!=None:
+            #    if redisserver.get(f"nyx_tok_{nyx_kibananyx}")!=None:
+            #        logger.info('signed in already')
+            #        return jsonify({"error":"","signedIn":True})
+            logged_out=request.args.get("loggedout")
+            logger.info(session.get("user",None))
+            logger.info(session.get("extra_data",None))
+            if session.get("user")!=None and session.get("extra_data")!=None and logged_out!="true":
+                logger.info('Azure signed in, going straight to second step')
+                response.data=json.dumps({"error":"","url":"","signedIn":False,"azureSignedIn":True})
+                return response
+            if session.get("flow")==None:
+                host_url=request.headers["Referer"]
+                endpoint=os.environ['AZURE_REDIRECT_ENDPOINT'][1:] if os.environ['AZURE_REDIRECT_ENDPOINT'][0]=="/" else os.environ['AZURE_REDIRECT_ENDPOINT'] 
+                if os.environ.get("LOCAL")=="true":
+                    host_url=""
+                    endpoint=os.environ["AZURE_REDIRECT_ENDPOINT"]
+                session["flow"] = _build_auth_code_flow(scopes=["User.Read","email"], authority=os.environ["AZURE_AUTHORITY"], request_url=f"{host_url}{endpoint}")
+            response.data=json.dumps({"error":"","url":session["flow"]["auth_uri"],"signedIn":False,"azureSignedIn":False})
             return response
-        if session.get("flow")==None:
-            host_url=request.headers["Referer"]
-            endpoint=os.environ['AZURE_REDIRECT_ENDPOINT'][1:] if os.environ['AZURE_REDIRECT_ENDPOINT'][0]=="/" else os.environ['AZURE_REDIRECT_ENDPOINT'] 
-            if os.environ.get("LOCAL")=="true":
-                host_url=""
-                endpoint=os.environ["AZURE_REDIRECT_ENDPOINT"]
-            session["flow"] = _build_auth_code_flow(scopes=["User.Read","email"], authority=os.environ["AZURE_AUTHORITY"], request_url=f"{host_url}{endpoint}")
-        response.data=json.dumps({"error":"","url":session["flow"]["auth_uri"],"signedIn":False,"azureSignedIn":False})
-        return response
 
 @name_space.route('/azure/finished')
 class azureLogout(Resource):
