@@ -122,6 +122,7 @@ def config(api,conn,es,redis,token_required):
             logger.info("Optiboard lifesign. Client.")
 
             req= json.loads(request.data.decode("utf-8"))
+            print('req: ', req)
 
             guid=req["config"]["guid"]
             disk=req.get("disk",{})
@@ -298,6 +299,68 @@ def config(api,conn,es,redis,token_required):
                 return {'error':"Waiting for approval",'errorcode':100}            
             return {'error':"Unknown error",'errorcode':99}   
         
+    #---------------------------------------------------------------------------
+    # API SETCOUNTUSER
+    #---------------------------------------------------------------------------
+    @api.route('/api/v1/ext/optiboard/setcountuser')
+    @api.doc(description="Optiboard get Config")
+    class devices(Resource):
+        def post(self):
+            body = request.json.get("body")
+            guid = body.get('guid')
+            if redis.get("optiboard_"+guid)==None:
+                logger.info("Token does not exists in redis")
+
+                try:
+                    record=es.get(index="optiboard_token",id=guid)
+                    logger.info(">="*30)
+                    
+                    record=record["_source"]
+                    logger.info("1")
+                    if record["accepted"]==1:
+                        logger.info("2")
+                        redis.set("optiboard_"+guid,json.dumps(record),300)
+                        logger.info("3")
+                        return {'error':""}            
+                except Exception as e:
+                    logger.info("Record does not exists. Returning error.",exc_info=True)     
+                    return {'error':"KO"}
+                
+            index = request.json.get("index")
+            if index in ["optiboard_count_user", "optiboard_count_click"]:
+                body["@timestamp"] = int(datetime.datetime.now().timestamp()*1000)
+                logger.info(f'body: {body}')
+                sea = es.search(index="optiboard_token", body={
+                    "query": {
+                        "match": {
+                            "guid": body.get('guid')
+                        }
+                    },
+                    "size": 1
+                })
+                config = sea["hits"]["hits"][0]["_source"]
+                body["client"] = config['client']
+                body["optiboard"] = config['optiboard']
+                body["description"] = config['description']
+                if body.get("_id"): del body["_id"]
+                es.index(index=index, document=body)
+                es.update_by_query(
+                    index = index, 
+                    body = {
+                        "script": {
+                            "source": f"ctx._source['optiboard'] = '{config['optiboard']}'; ctx._source['client'] = '{config['client']}'; ctx._source['description'] = '{config['description']}'",
+                            "lang": "painless"
+                        },
+                        "query": {
+                            "match_phrase": {
+                                "guid": body.get('guid')
+                            }
+                        }
+                    }
+                )
+                return 'ok', 200
+            else:
+                return 'index non reconnu', 404
 
     #---------------------------------------------------------------------------
     # API GETTOKEN
