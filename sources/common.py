@@ -48,7 +48,7 @@ def filterReports(res,user):
 
     if "admin" in user["privileges"]:
         return res
-    return list(filter(lambda x:True if x["_source"]["creds"]["user"].get("user","NA")==user["id"] else False,res))
+    return list(filter(lambda x:True if x["_source"]["creds"]["user"].get("id","NA")==user["id"] else False,res))
 
 def filterReportDefs(res,user):
     logger=logging.getLogger()
