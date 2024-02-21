@@ -1,6 +1,6 @@
 #/bin/bash
 filename="./sources/nyx_rest_api_plus.py"
-VERSION="4.4.25"
+VERSION="4.4.26"
 
 sed -i "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For Windows
 sed -i '' "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For MACOS
@@ -24,6 +24,8 @@ docker push engiecofely/nyx_restapi_8:v$VERSION
 #   4.4.22  EBU Security Update && Debug load data multiple pages
 #   4.4.23  JFI Added SKIP_ACTIVE_DIRECTORY
 #   4.4.25  EBU Transfer counteruser from quantesrestapi
+#   4.4.26  JFI correcting report filter for users
+
 
 
 
