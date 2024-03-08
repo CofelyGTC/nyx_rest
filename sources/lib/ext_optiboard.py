@@ -328,7 +328,7 @@ def config(api,conn,es,redis,token_required):
                 
             index = request.json.get("index")
             if index in ["optiboard_count_user", "optiboard_count_click"]:
-                body["@timestamp"] = int(datetime.datetime.now().timestamp()*1000)
+                if not body.get("@timestamp"): body["@timestamp"] = int(datetime.datetime.now().timestamp()*1000)
                 logger.info(f'body: {body}')
                 sea = es.search(index="optiboard_token", body={
                     "query": {
