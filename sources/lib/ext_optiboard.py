@@ -1,5 +1,7 @@
 import os
 import json
+import re
+import time
 import uuid
 
 import arrow
@@ -361,6 +363,78 @@ def config(api,conn,es,redis,token_required):
                 return 'ok', 200
             else:
                 return 'index non reconnu', 404
+
+
+    @api.route('/api/v1/ext/optiboard/sendusagecount')
+    class sendusagecount(Resource):
+        def post(self):
+            logger.info(">>>>> Optiboard/sendusagecount")
+            print('request.json: ', request.json)
+            body = request.json.get("body")
+            guid = request.json.get("guid")
+            if redis.get("optiboard_"+guid)==None:
+                logger.info("Token does not exists in redis")
+
+                try:
+                    record=es.get(index="optiboard_token",id=guid)
+                    logger.info(">="*30)
+                    
+                    record=record["_source"]
+                    logger.info("1")
+                    if record["accepted"]==1:
+                        logger.info("2")
+                        redis.set("optiboard_"+guid,json.dumps(record),300)
+                        logger.info("3")
+                        return {'error':""}            
+                except Exception as e:
+                    logger.info("Record does not exists. Returning error.",exc_info=True)     
+                    return {'error':"KO"}
+                
+            if body:
+                log_data_list = body.split('\n')
+                for line in log_data_list:
+                    # Faites ce que vous voulez avec chaque ligne, par exemple l'imprimer
+                    log_pattern = r'\[(.*?)\] \[(.*?)\] (.*?) - (.*)'
+
+                    # Extraire les informations de la ligne de log
+                    match = re.match(log_pattern, line)
+
+                    if match:
+                        timestamp_str = match.group(1)
+                        log_level = match.group(2)
+                        log_body_str = match.group(4)
+                        timestamp = int(datetime.datetime.fromisoformat(timestamp_str).timestamp()*1000)
+                        data = json.loads(log_body_str)
+                        index = data.get("index")
+                        body = data.get("body")
+                        try:
+                            existing_doc = es.get(index=index, id=f'{body["guid"]}_{timestamp}')
+                        except Exception as e:
+                            logger.info(f'error: {e}')
+                            existing_doc = None
+
+                        if not existing_doc:
+                            sea = es.search(index="optiboard_token", body={
+                                "query": {
+                                    "match": {
+                                        "guid": body.get('guid')
+                                    }
+                                },
+                                "size": 1
+                            })
+                            config = sea["hits"]["hits"][0]["_source"]
+                            body["client"] = config['client']
+                            body["optiboard"] = config['optiboard']
+                            body["description"] = config['description']
+                            body["@timestamp"] = timestamp
+                            if body.get("_id"): del body["_id"]
+                            if body.get("mode"): del body["mode"]
+                            logger.info(f'body: {body}')
+                            res = es.index(index=index, id=f'{body["guid"]}_{timestamp}', document=body)
+                            logger.info(f'res: {res}')
+                            # time.sleep(0.1)
+            return 'ok', 200
+
 
     #---------------------------------------------------------------------------
     # API GETTOKEN
