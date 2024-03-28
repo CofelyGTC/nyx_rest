@@ -1,6 +1,6 @@
 #/bin/bash
 filename="./sources/nyx_rest_api_plus.py"
-VERSION="4.4.30"
+VERSION="4.4.31"
 
 sed -i "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For Windows
 sed -i '' "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For MACOS
@@ -28,3 +28,4 @@ docker push engiecofely/nyx_restapi_8:v$VERSION
 #   4.4.28  EBU Optiboard: Redis.set Change json for use generic search
 #   4.4.29  EBU Optiboard: Condition if not timestamp
 #   4.4.30  EBU Optiboard: Function send usage log when mode 4G
+#   4.4.31  EBU Optiboard: Fix timestamp - isoformat

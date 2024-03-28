@@ -330,7 +330,7 @@ def config(api,conn,es,redis,token_required):
                 
             index = request.json.get("index")
             if index in ["optiboard_count_user", "optiboard_count_click"]:
-                if not body.get("@timestamp"): body["@timestamp"] = int(datetime.datetime.now().timestamp()*1000)
+                if not body.get("@timestamp"): body["@timestamp"] = datetime.utcnow().isoformat() + 'Z'
                 logger.info(f'body: {body}')
                 sea = es.search(index="optiboard_token", body={
                     "query": {
@@ -403,14 +403,26 @@ def config(api,conn,es,redis,token_required):
                         timestamp_str = match.group(1)
                         log_level = match.group(2)
                         log_body_str = match.group(4)
-                        timestamp = int(datetime.datetime.fromisoformat(timestamp_str).timestamp()*1000)
                         data = json.loads(log_body_str)
                         index = data.get("index")
                         body = data.get("body")
-                        try:
-                            existing_doc = es.get(index=index, id=f'{body["guid"]}_{timestamp}')
-                        except Exception as e:
-                            logger.info(f'error: {e}')
+                        # Vérifiez si l'index existe
+                        if es.indices.exists(index=index):
+                            try:
+                                existing_doc = sea = es.search(index=index, body={
+                                    "query": {
+                                        "bool": {
+                                            "must": [
+                                                {"match": {"guid": body.get('guid')}},
+                                                {"match": {"@timestamp": body.get('@timestamp')}}
+                                            ]
+                                        }
+                                    },
+                                    "size": 1
+                                })
+                                if not existing_doc["hits"]["hits"]: existing_doc = None
+                            except: existing_doc = None
+                        else:
                             existing_doc = None
 
                         if not existing_doc:
@@ -426,11 +438,10 @@ def config(api,conn,es,redis,token_required):
                             body["client"] = config['client']
                             body["optiboard"] = config['optiboard']
                             body["description"] = config['description']
-                            body["@timestamp"] = timestamp
                             if body.get("_id"): del body["_id"]
                             if body.get("mode"): del body["mode"]
                             logger.info(f'body: {body}')
-                            res = es.index(index=index, id=f'{body["guid"]}_{timestamp}', document=body)
+                            res = es.index(index=index, document=body)
                             logger.info(f'res: {res}')
                             # time.sleep(0.1)
             return 'ok', 200
