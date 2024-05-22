@@ -95,15 +95,28 @@ def loadRss(url):
         rsstitles.append(entry["title"])
     return rsstitles
 
-def get_weather(api_key, language,location):
+def get_weather(api_key, language,location, es):
     url = "https://api.openweathermap.org/data/2.5/forecast?q={}&lang={}&units=metric&appid={}".format(location, language,api_key)
     r = requests.get(url)
     weather= r.json()
     weather["list"][0]["main"]["temp"]=int((weather["list"][0]["main"]["temp_min"]+weather["list"][0]["main"]["temp_max"])/2)
     weather["list"][8]["main"]["temp"]=int((weather["list"][8]["main"]["temp_min"]+weather["list"][8]["main"]["temp_max"])/2)
 
-    weather["list"][0]["main"]["url"]="https://openweathermap.org/img/w/"+weather["list"][0]["weather"][0]["icon"]+".png"
-    weather["list"][8]["main"]["url"]="https://openweathermap.org/img/w/"+weather["list"][8]["weather"][0]["icon"]+".png"
+    for x in [0,8]:
+        print('weather["list"][0]["main"]: ', weather["list"][x]["main"])
+        print('x: ', x)
+        logo = es.search(index="meteo_logo", body={
+            "query": {
+                "match": {
+                    "_id": weather["list"][x]["weather"][0]["icon"]
+                }
+            },
+            "size": 1
+        })
+        if logo and logo["hits"]["hits"][0]["_source"].get("logo_name"):
+            weather["list"][x]["main"]["url"]=os.environ["UI_BASE_URL"]+"/public/meteo/"+logo["hits"]["hits"][0]["_source"]["logo_name"]+".png"
+        else:
+            weather["list"][x]["main"]["url"]="https://openweathermap.org/img/w/"+weather["list"][x]["weather"][0]["icon"]+".png"
     
 
     retobj={"today":weather["list"][0],"tomorrow":weather["list"][8]}
@@ -239,7 +252,7 @@ def config(api,conn,es,redis,token_required):
                         record["rss_feed"]=loadRss(record["rss"])
                     if "weather" in record:
                         record["language"]= record["weather"]["language"]
-                        record["weather"]=get_weather(record["weather"]["apikey"], record["weather"]["language"],record["weather"]["location"])
+                        record["weather"]=get_weather(record["weather"]["apikey"], record["weather"]["language"],record["weather"]["location"], es)
                     res_views = es.mget(
                         index = 'nyx_view_carousel',
                         body = {'ids': [ids["id"] for ids in carousel["id_array"]]}
@@ -291,7 +304,7 @@ def config(api,conn,es,redis,token_required):
                     record["rss_feed"]=loadRss(record["rss"])
                 if "weather" in record:
                     record["language"]= record["weather"]["language"]
-                    record["weather"]=get_weather(record["weather"]["apikey"], record["weather"]["language"],record["weather"]["location"])
+                    record["weather"]=get_weather(record["weather"]["apikey"], record["weather"]["language"],record["weather"]["location"], es)
                 if "carrousel" in record:
                     record["carrousel"]=get_carousel_config(es,record["carrousel"])
                     if record['carrousel'] is None: 
