@@ -103,8 +103,6 @@ def get_weather(api_key, language,location, es):
     weather["list"][8]["main"]["temp"]=int((weather["list"][8]["main"]["temp_min"]+weather["list"][8]["main"]["temp_max"])/2)
 
     for x in [0,8]:
-        print('weather["list"][0]["main"]: ', weather["list"][x]["main"])
-        print('x: ', x)
         logo = es.search(index="meteo_logo", body={
             "query": {
                 "match": {
@@ -113,8 +111,8 @@ def get_weather(api_key, language,location, es):
             },
             "size": 1
         })
-        if logo and logo["hits"]["hits"][0]["_source"].get("logo_name"):
-            weather["list"][x]["main"]["url"]=os.environ["UI_BASE_URL"]+"/public/meteo/"+logo["hits"]["hits"][0]["_source"]["logo_name"]+".png"
+        if logo and logo["hits"]["hits"] and logo["hits"]["hits"][0]["_source"].get("logo_name"):
+            weather["list"][x]["main"]["url"]=os.environ["UI_BASE_URL"].split('#')[0]+"public/meteo/"+logo["hits"]["hits"][0]["_source"]["logo_name"]+".png"
         else:
             weather["list"][x]["main"]["url"]="https://openweathermap.org/img/w/"+weather["list"][x]["weather"][0]["icon"]+".png"
     
