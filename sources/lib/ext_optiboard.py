@@ -112,7 +112,9 @@ def get_weather(api_key, language,location, es):
             "size": 1
         })
         if logo and logo["hits"]["hits"] and logo["hits"]["hits"][0]["_source"].get("logo_name"):
-            weather["list"][x]["main"]["url"]=os.environ["UI_BASE_URL"].split('#')[0]+"public/meteo/"+logo["hits"]["hits"][0]["_source"]["logo_name"]+".png"
+            baseURL = os.environ["UI_BASE_URL"].split('#')[0]
+            if not baseURL.endswith('/'): baseURL += "/"
+            weather["list"][x]["main"]["url"]=baseURL+"public/meteo/"+logo["hits"]["hits"][0]["_source"]["logo_name"]+".png"
         else:
             weather["list"][x]["main"]["url"]="https://openweathermap.org/img/w/"+weather["list"][x]["weather"][0]["icon"]+".png"
     
