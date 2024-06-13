@@ -274,6 +274,25 @@ def config(api,conn,es,redis,token_required):
                 return {'error':"Not carousel find.",'errorcode':500}  
 
     #---------------------------------------------------------------------------
+    # API GETWEATHER
+    #---------------------------------------------------------------------------
+    @api.route('/api/v1/ext/optiboard/getweather')
+    @api.doc(description="User get carousel", params={'guid': 'GUID'})
+    class optiboardGetWeather(Resource):
+        def get(self):
+            logger.info("Optiboard getweather called.")
+            guid=request.args["guid"]
+            logger.info(guid)
+            try:
+                record=es.get(index="optiboard_token",id=guid)
+                record=record["_source"]
+            except:
+                logger.info("Record does not exists.")
+                return {'error':"Unknown error",'errorcode':99}   
+            weather = get_weather(record["weather"]["apikey"], record["weather"]["language"],record["weather"]["location"], es)
+            return {'error':"",'rec':weather}
+
+    #---------------------------------------------------------------------------
     # API GETCONFIG
     #---------------------------------------------------------------------------
     getConfigAPI = api.model('getConfig_model', {
@@ -312,8 +331,8 @@ def config(api,conn,es,redis,token_required):
                 return {'error':"",'rec':record}            
             else:
                 return {'error':"Waiting for approval",'errorcode':100}            
-            return {'error':"Unknown error",'errorcode':99}   
-        
+            return {'error':"Unknown error",'errorcode':99}
+    
     #---------------------------------------------------------------------------
     # API SETCOUNTUSER
     #---------------------------------------------------------------------------
