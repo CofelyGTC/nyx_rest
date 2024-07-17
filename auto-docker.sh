@@ -1,6 +1,6 @@
 #/bin/bash
 filename="./sources/nyx_rest_api_plus.py"
-VERSION="4.4.36"
+VERSION="4.4.37"
 
 sed -i "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For Windows
 sed -i '' "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For MACOS
@@ -32,3 +32,4 @@ docker push engiecofely/nyx_restapi_8:v$VERSION
 #   4.4.34  EBU Optiboard: New meteo logo
 #   4.4.35  EBU Optiboard: Fix meteo URL
 #   4.4.36  EBU Optiboard: Add getweather function
+#   4.4.37  EBU Optiboard: Add token kibananyx
