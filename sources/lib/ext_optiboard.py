@@ -495,6 +495,8 @@ def config(api,conn,es,redis,token_required):
                 record=record["_source"]
                 token=uuid.uuid4()
                 if record["accepted"]==1:
+                    redis.set("nyx_kibana_"+str(token),json.dumps({'return':"OK", 'device': 'optiboard', "login": guid}),3600*24)
+                    redis.set("nyx_kibananyx_"+str(token),json.dumps({'return':"OK", 'device': 'optiboard', "login": guid}),3600*24)
                     redis.set("nyx_tok_"+str(token),json.dumps({'return':"OK", 'device': 'optiboard', "login": guid}),3600*24)
                     resp=make_response(jsonify({'error':"","token":token}))
                 else:
