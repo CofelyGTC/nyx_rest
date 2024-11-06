@@ -38,7 +38,8 @@ from passlib.hash import pbkdf2_sha256
 
 from flask import make_response,url_for
 from flask_cors import CORS, cross_origin
-from amqstompclient import amqstompclient
+# from amqstompclient import amqstompclient
+import amqstomp as amqstompclient
 from flask_restx import Api, Resource, fields
 from cachetools import cached, TTLCache #,LRUCache
 from flask import Flask, jsonify, request,Blueprint
@@ -85,7 +86,7 @@ if os.environ.get("LOCAL")=="true":
     #line_num, UIVERSION=get_ui_version()
 line_num=-1
 
-VERSION="4.4.37"
+VERSION="4.4.38"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
