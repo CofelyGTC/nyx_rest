@@ -72,7 +72,7 @@ from common import loadData,applyPrivileges,kibanaData,getELKVersion
 from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
 
 
-VERSION="3.11.6"
+VERSION="3.11.7"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -1153,7 +1153,9 @@ class logoutall(Resource):
         
         conn.send_message("/topic/LOGOUT_EVENT",token)'''
 
-        return {"error":""}       
+        return {"error":""}    
+
+
 
 
 #---------------------------------------------------------------------------
@@ -1798,6 +1800,37 @@ class getRecord(Resource):
             return {"error":er,"data":None}
             
 
+#---------------------------------------------------------------------------
+# API getUniqueValue
+#---------------------------------------------------------------------------
+@name_space.route('/getuniquevalue/<string:_index>/<string:field>')
+@api.doc(description="Return all unique value for a field in an index", params={'token': 'A valid token'})
+class getRecord(Resource):
+    @token_required()
+    def get(self, _index='', field='', user=None):
+        global es
+        logger.info('Search all values for field: '+ field +' in Index: '+_index)
+        query = {
+            "size": 0,  # Ne retourne pas de documents, juste les résultats de l'agrégation
+            "aggs": {
+                "unique_values": {
+                    "terms": {
+                        "field": field,
+                        "size": 10000  # Taille maximale des résultats, ajustez selon vos besoins
+                    }
+                }
+            }
+}
+        try:
+            # Exécute la requête
+            response = es.search(index=_index, body=query)
+
+            # Récupère les valeurs uniques
+            unique_values = [bucket['key'] for bucket in response['aggregations']['unique_values']['buckets']]
+
+            return {"error":"","data":unique_values}
+        except Exception as er:
+            return {"error":er,"data":None}
 
 
 #---------------------------------------------------------------------------
