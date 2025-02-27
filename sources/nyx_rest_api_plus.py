@@ -45,7 +45,7 @@ from cachetools import cached, TTLCache #,LRUCache
 from flask import Flask, jsonify, request,Blueprint
 from logging.handlers import TimedRotatingFileHandler
 from logstash_async.handler import AsynchronousLogstashHandler
-from common import loadData,kibanaData,getELKVersion #,applyPrivileges
+from common import loadData,kibanaData,getELKVersion,get_es_info #,applyPrivileges
 from elasticsearch import Elasticsearch as ES
 
 import dotenv, linecache
@@ -86,7 +86,7 @@ if os.environ.get("LOCAL")=="true":
     #line_num, UIVERSION=get_ui_version()
 line_num=-1
 
-VERSION="4.4.38"
+VERSION="4.4.39"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
@@ -2195,12 +2195,12 @@ def compute_kibana_url(dashboard_dict, appl):
     
     if elkversion==8:
         if dash.get('_source').get('namespaces') and dash.get('_source').get('namespaces')[0] != 'default':
-            space = 's/' + dash.get('_source').get('namespaces')[0]
-        return ('./kibananyx/'+space+"/app/dashboards#/view"+url)
+            space = 's/' + dash.get('_source').get('namespaces')[0] + "/"
+        return ('./kibananyx/'+space+"app/dashboards#/view"+url)
     else:
         if dash.get('_source').get('namespace') and dash.get('_source').get('namespace') != 'default':
-            space = 's/' + dash.get('_source').get('namespace')
-        return ('./kibananyx/'+space+"/app/kibana#"+url)
+            space = 's/' + dash.get('_source').get('namespace') + "/"
+        return ('./kibananyx/'+space+"app/kibana#"+url)
 
 #---------------------------------------------------------------------------
 # get dictionary of dashboards
@@ -2220,7 +2220,8 @@ def get_dict_dashboards(es):
         }
     }
     if elkversion==8:
-        res=es.search(index=".kibana", body=query, size=10000)
+        if get_es_info(es).get('version').get('number') == "8.14.1": res=es.search(index=".kibana*", body=query, size=10000)
+        else: res=es.search(index=".kibana", body=query, size=10000)
     else:
         res=es.search(index=".kibana", body=query, size=10000)
 
