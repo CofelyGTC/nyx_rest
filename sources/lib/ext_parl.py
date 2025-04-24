@@ -7,8 +7,9 @@ import pytz,tzlocal
 import elasticsearch
 from datetime import datetime
 from datetime import timedelta
+from flask import make_response,url_for
 from flask import Flask, jsonify, request,Blueprint
-from flask_restplus import Namespace,Api, Resource, fields
+from flask_restx import Namespace, Api, Resource, fields
 from operator import itemgetter
 import distance
 from elastic_helper import es_helper 
