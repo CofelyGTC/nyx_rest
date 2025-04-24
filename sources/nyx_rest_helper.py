@@ -20,7 +20,7 @@ from logging.handlers import TimedRotatingFileHandler
 from amqstompclient import amqstompclient
 from datetime import datetime
 from functools import wraps
-from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
+from elasticsearch import Elasticsearch as ES
 from logstash_async.handler import AsynchronousLogstashHandler
 
 from common import loadData ,kibanaData
