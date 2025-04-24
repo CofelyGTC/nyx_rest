@@ -2,8 +2,8 @@
 filename="./sources/nyx_rest_api_plus.py"
 VERSION="4.4.39"
 
-sed -i "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For Windows
-sed -i '' "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For MACOS
+#sed -i "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For Windows
+#sed -i '' "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" $filename #For MACOS
 
 
 docker build -t engiecofely/nyx_restapi_8:v$VERSION -f Dockerfile .

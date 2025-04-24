@@ -1,7 +1,7 @@
 FROM python:3.9.13-slim
 ARG VERSION
 
-ENV VERSION=${VERSION}}
+ENV VERSION=${VERSION}
 
 RUN apt-get update && apt-get upgrade -y
 RUN apt-get install -y vim
