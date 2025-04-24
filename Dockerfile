@@ -1,5 +1,7 @@
 FROM python:3.9.13-slim
-MAINTAINER snuids
+ARG VERSION
+
+ENV VERSION=${VERSION}}
 
 RUN apt-get update && apt-get upgrade -y
 RUN apt-get install -y vim

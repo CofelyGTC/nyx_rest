@@ -86,7 +86,7 @@ if os.environ.get("LOCAL")=="true":
     #line_num, UIVERSION=get_ui_version()
 line_num=-1
 
-VERSION=os.getenv("VERSION","4.5.5")
+VERSION=os.getenv("VERSION","0.0.0")
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
