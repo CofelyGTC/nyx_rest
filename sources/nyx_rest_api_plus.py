@@ -904,8 +904,6 @@ def computeMenus(usr,token,apptag):
     else:
         res3=es.search(size=1000,index="nyx_app",doc_type="doc",body={"sort" : [{ "order" : "asc" }]})
     
-    dict_dashboard=get_dict_dashboards(es)
-
     categories={}
     for app in res3["hits"]["hits"]:
         appl=app["_source"]
@@ -925,37 +923,6 @@ def computeMenus(usr,token,apptag):
                 continue
             if apptag not in appl["apptags"]:
                 continue
-
-
-        
-
-
-        if appl.get("type")=="kibana":
-            logger.info('compute kibana url for : '+str(appl.get('title')))
-
-            config = appl["config"]
-
-
-            old_kibana_url=config.get("url")
-
-            config["url"]=compute_kibana_url(dict_dashboard, appl)
-            logger.info(config["url"])
-            if config.get("filtercolumn") is not None and config.get("filtercolumn")!="" and "filters" in usr["_source"] and len(usr["_source"]["filters"])>0:
-                logger.info('compute kibana url for : '+str(appl.get('title')))
-                config["url"]=clean_kibana_url(config.get('url'),config.get("filtercolumn"),usr["_source"]["filters"])
-
-            if old_kibana_url != config.get("url"):
-                logger.warning('the url calculated for app: '+appl.get('title')+' is desync from the database (ES)')
-                logger.warning(config.get("url"))
-                logger.warning(old_kibana_url)
-                logger.warning('we have to update database !!!')
-
-                app_to_index = appl.copy()
-                del app_to_index['rec_id']
-                if elkversion==8:
-                    es.index(index=app['_index'], id=app['_id'], document=app_to_index)
-                else:                                
-                    es.index(index=app['_index'], doc_type=app['_type'], id=app['_id'], body=app_to_index)
 
         if appl["category"] not in categories:
             categories[appl["category"]]={"subcategories":{}}
@@ -1728,6 +1695,18 @@ def kibanaLoad(user=None):
     logger.info(matchrequest)
     return kibanaData(es,conn,matchrequest,user,outputformat,True,OUTPUT_URL,OUTPUT_FOLDER)
 
+@app.route('/api/v1/kibana/api/spaces/space',methods=['GET'])
+@token_required()
+def kibanaSpaces(user=None):
+    return requests.get("http://kibana:5601/api/spaces/space").text
+
+@app.route('/api/v1/kibana/s/<space_id>/api/saved_objects/_find',methods=['GET'])
+@token_required()
+def kibanaDashboards(user=None, space_id=None):
+    per_page=request.args.get('per_page')
+    page=request.args.get('page')
+    return requests.get(f"http://kibana:5601/s/{space_id}/api/saved_objects/_find?type=dashboard&per_page={per_page}&page={page}").text
+
 #---------------------------------------------------------------------------
 # API generic crud
 #---------------------------------------------------------------------------
@@ -2104,129 +2083,6 @@ def can_use_indice(indice,user,query):
                 return (True,query,resultsmustbefiltered)
     
     return (True,query,resultsmustbefiltered)
-
-
-#---------------------------------------------------------------------------
-# compute kibana url
-#---------------------------------------------------------------------------
-def compute_kibana_url(dashboard_dict, appl):
-    if appl.get('config').get('kibanaId') is None:
-        return appl.get('config').get('url')
-    if elkversion==8:
-        url = "/" + appl.get('config')['kibanaId'] + ""
-    else:
-        url = "/dashboard/" + appl.get('config')['kibanaId'] + ""
-
-    time = "from:now-7d,mode:quick,to:now"
-
-    if appl.get('config').get('kibanaTime') is not None:
-        time = appl.get('config').get('kibanaTime')
-
-    refresh = "refreshInterval:(pause:!t,value:0)"
-
-    if appl.get('timeRefresh') and appl.get('timeRefreshValue'):
-        if 'refreshInterval' in appl.get('timeRefreshValue'): # to handle the transition, we want to keep only the else part
-            refresh = appl.get('timeRefreshValue')
-        else: 
-            refresh = 'refreshInterval:(pause:!f,value:'+str(appl.get('tcimeRefreshValue'))+')'
-
-    try:
-        dash = dashboard_dict[appl.get('config').get('kibanaId')]
-    except:
-        logger.error("Unable to compute kibana URL")
-        logger.error(appl.get('config'))
-        return 'INVALIDURL'
-    
-    dash_obj = dash.get('_source').get('dashboard')
-
-    url += "?embed=true&_g=("+refresh+",time:(" + time +"))"
-    url += "&_a=(description:'" + dash_obj.get('description') + "'"
-    url += ",filters:!(),fullScreenMode:!f"  
-
-    if dash_obj.get('optionsJSON'):
-        options = json.loads(dash_obj.get('optionsJSON'))
-
-        # {'darkTheme': False, 'hidePanelTitles': False, 'useMargins': True} => 'darkTheme:!f,hidePanelTitles:!f,useMargins:!t'
-        url_options = ','.join([str(k)+':'+str(v) for k, v in options.items()]).replace('True', '!t').replace('False', '!f')
-        url += ",options:(" + url_options + ")"
-    else:
-        url += ",options:()"
-
-    panels = []
-    panels_json = json.loads(dash_obj.get('panelsJSON'))
-
-    for pan in panels_json:
-        if dash.get('_source').get('migrationVersion') and \
-           dash.get('_source').get('migrationVersion').get('dashboard') in ['7.0.0','7.1.0','7.2.0','7.3.0']:
-            for ref in dash.get('_source').get('references'):
-                if ref.get('name')==pan.get('panelRefName') :
-                    pan['id']=ref.get('id')  
-                    pan['type']=ref.get('type')  
-
-        if pan is not None and pan.get("embeddableConfig") is not None and pan["embeddableConfig"].get("colors") is not None:
-            newcols={}
-            for colkey in pan["embeddableConfig"]["colors"]:
-                newcols[colkey.replace("%","%25").replace(" ","%20")]=pan["embeddableConfig"]["colors"][colkey]
-            pan["embeddableConfig"]["colors"]=newcols
-
-
-        if pan is not None and pan.get("embeddableConfig") is not None and pan["embeddableConfig"].get( "vis") is not None and pan["embeddableConfig"]["vis"].get("colors") is not None:
-            newcols={}
-            for colkey in pan["embeddableConfig"]["vis"]["colors"]:
-                newcols[colkey.replace("%","%25").replace(" ","%20")]=pan["embeddableConfig"]["vis"]["colors"][colkey]
-            pan["embeddableConfig"]["vis"]["colors"]=newcols
-
-
-        panels.append(prison.dumps(pan))
-
-    url += ",panels:!(" + ','.join(panels).replace('#', "%23").replace('&', "%26") + ")"
-
-    query = "query:(language:lucene,query:'*')"
-
-    if dash_obj.get('kibanaSavedObjectMeta') and dash_obj.get('kibanaSavedObjectMeta').get('searchSourceJSON'):
-        query_2 = json.loads(dash_obj.get('kibanaSavedObjectMeta').get('searchSourceJSON'))
-
-        if query_2.get('query'):
-            query = 'query:'+prison.dumps(query_2.get('query'))
-
-    url += "," + query + ",timeRestore:!f,title:Test,viewMode:view)";  
-
-    space = ''
-    
-    if elkversion==8:
-        if dash.get('_source').get('namespaces') and dash.get('_source').get('namespaces')[0] != 'default':
-            space = 's/' + dash.get('_source').get('namespaces')[0] + "/"
-        return ('./kibananyx/'+space+"app/dashboards#/view"+url)
-    else:
-        if dash.get('_source').get('namespace') and dash.get('_source').get('namespace') != 'default':
-            space = 's/' + dash.get('_source').get('namespace') + "/"
-        return ('./kibananyx/'+space+"app/kibana#"+url)
-
-#---------------------------------------------------------------------------
-# get dictionary of dashboards
-#---------------------------------------------------------------------------
-def get_dict_dashboards(es):
-    query={
-        "query": {
-            "bool": {
-                "must": [
-                        {
-                        "query_string": {
-                            "query": "type: dashboard"
-                        }
-                    }
-                ]
-            }
-        }
-    }
-    if elkversion==8:
-        if get_es_info(es).get('version').get('number') == "8.14.1": res=es.search(index=".kibana*", body=query, size=10000)
-        else: res=es.search(index=".kibana", body=query, size=10000)
-    else:
-        res=es.search(index=".kibana", body=query, size=10000)
-
-    return {dash['_id'].split(':')[-1]: dash for dash in res['hits']['hits']}
-
 
 #=============================================================================
 
