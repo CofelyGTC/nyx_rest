@@ -9,6 +9,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      VERSION: ${{ github.ref_name }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
