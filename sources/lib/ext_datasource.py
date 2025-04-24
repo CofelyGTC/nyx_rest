@@ -2,7 +2,7 @@ import json
 import logging
 import requests
 import pandas as pd
-from flask_restplus import Namespace,Api, Resource, fields
+from flask_restx import Namespace,Api, Resource, fields
 
 
 print("***>"*100)

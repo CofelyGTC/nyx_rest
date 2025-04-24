@@ -1,39 +1,13 @@
-"""
-v2.11.0 AMA 31/OCT/2019  Fixed a security issue that occured when the login is the mail address and get tokenized.
-v2.12.0 VME 07/JAN/2020  Send a message to delete a token from all instances of the rest api when Logout.
-v2.13.0 VME 23/JAN/2020  TTL tokens dictionnary, to avoid an alive token in the rest api and dead in redis.
-v2.14.0 VME 05/FEB/2020  File system v1
-v2.14.3 AMA 05/FEB/2020  Scrolls IDs are now correctly deleted
-v2.15.0 VME 20/FEB/2020  Login will send all privileges and filters if admin
-v2.15.1 VME 20/FEB/2020  Bug fixing
-v3.0.0  AMA 23/FEB/2020  Compatible with elastic version 7.4.2
-v3.0.1  VME 05/MAR/2020  Redisign of the files end point 
-v3.0.2  VME 15/MAR/2020  Fixed a few postgresql issues
-v3.1.0  VME 15/MAR/2020  Fixed an issue when % character is used in kibana
-v3.3.1  AMA 06/Apr/2020  Fixed a privilege issue for collections with filtered columns
-v3.3.2  AMA 09/Apr/2020  Token added to upload route
-v3.3.3  AMA 10/Apr/2020  Added headers to send message API
-v3.4.0  AMA 15/Apr/2020  Query filter can use elastic seacrh queries
-v3.5.0  VME 15/Apr/2020  passing header "upload_headers" to broker when calling upload endpoint
-v3.6.0  AMA 17/Apr/2020  PG queries can use an offset 
-v3.6.3  AMA 18/Apr/2020  PG queries support ordering
-v3.7.2  AMA 22/Apr/2020  Pagination supported in Elastic Search
-v3.8.0  AMA 07/May/2020  Dynamic query filters
-v3.9.0  AMA 07/May/2020  Lambda rest api added
-v3.10.0 VME 19/May/2020  Elastic version send back to ui (/config)
-"""
-
 import re
 import json
 import time
 import uuid
-import flask
+#import flask
 import redis
 import base64
 import prison
 import random
 import string
-import random
 import dateutil
 import psycopg2
 import requests
@@ -42,45 +16,86 @@ import importlib
 
 import threading
 import cachetools
-import subprocess
+#import subprocess
 import os,logging
 import pandas as pd
 import elasticsearch
 from pathlib import Path
-from flask import Response
 from functools import wraps
-from flask import send_file
+from flask import send_file, Response, session, make_response, redirect
 from zipfile import ZipFile
 
 from datetime import datetime
 from datetime import timedelta
-from importlib import resources
+#from importlib import resources
 from common import get_mappings
+
+from flask_session import Session
+import msal
+
 from pg_common import loadPGData
 from passlib.hash import pbkdf2_sha256
 
-
 from flask import make_response,url_for
 from flask_cors import CORS, cross_origin
-from amqstompclient import amqstompclient
-from flask_restplus import Api, Resource, fields
-from cachetools import cached, LRUCache, TTLCache
+# from amqstompclient import amqstompclient
+import amqstomp as amqstompclient
+from flask_restx import Api, Resource, fields
+from cachetools import cached, TTLCache #,LRUCache
 from flask import Flask, jsonify, request,Blueprint
 from logging.handlers import TimedRotatingFileHandler
 from logstash_async.handler import AsynchronousLogstashHandler
-from common import loadData,applyPrivileges,kibanaData,getELKVersion
-from elasticsearch import Elasticsearch as ES, RequestsHttpConnection as RC
+from common import loadData,kibanaData,getELKVersion,get_es_info #,applyPrivileges
+from elasticsearch import Elasticsearch as ES
+
+import dotenv, linecache
+dotenv.load_dotenv()
+
+    
+def get_ui_version(line_num=None):
+    try:
+        store_path="./nyx_ui/store/store.js"
+        if(line_num!=-1):
+            linecache.checkcache()
+            line=linecache.getline(store_path,line_num)
+            logger.info("we have line number")
+            if(line.find("version")!=-1):
+                logger.info(f"line found : {line}")
+                UIVERSION=line.split("\"")[1]
+                return line_num, UIVERSION
+
+        logger.info("no line number")
+        f = open(store_path, "r")
+        lines=f.readlines()
+        for i,line in enumerate(lines,start=1):
+            if(line.find("version")!=-1):
+                logger.info(f"version found at line: {i} and line is {line}")
+                UIVERSION=line.split("\"")[1]
+                break
+    except Exception as e:
+        logger.info(f"got an error somewhere: error is: {e}")
+        i, UIVERSION = None, os.environ["UIVERSION"]
+        logger.info(f"return is, {i},{UIVERSION}")
 
 
-VERSION="3.11.7"
+    return i, UIVERSION
+
+if os.environ.get("LOCAL")=="true":
+    dotenv.load_dotenv()  # config = {"USER": "foo", "EMAIL": "foo@example.org"}
+    line_num, UIVERSION = None, os.environ["UIVERSION"]
+    #line_num, UIVERSION=get_ui_version()
+line_num=-1
+
+VERSION="4.5.1"
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
 
-UIVERSION = os.environ["UIVERSION"]
+CLIENT = os.environ["CLIENT"]
+TITLE=os.environ["TITLE"]
 WELCOME=os.environ["WELCOMEMESSAGE"]
 ICON=os.environ["ICON"]
 
-elkversion=6
+elkversion=7
 
 restapiresults=[]
 restapiresultslock=threading.RLock()
@@ -92,8 +107,6 @@ last_indices_refresh=datetime.now()-timedelta(minutes=10)
 translations={}
 last_translation_refresh_seconds=60
 last_translation_refresh=datetime.now()-timedelta(minutes=10)
-
-
 
 # tokens={}
 tokens=cachetools.TTLCache(maxsize=1000, ttl=5*60)
@@ -124,7 +137,13 @@ logger.info("REST API %s" %(VERSION))
 
 userActivities=[]
 
-app = Flask(__name__, static_folder='temp', static_url_path='/temp')#, static_url_path='/temp')
+app = Flask(__name__, static_folder='temp', static_url_path='/temp',template_folder="templates")#, static_url_path='/temp')
+app.config['SESSION_TYPE'] = 'redis'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_REDIS'] = redis.from_url(f"redis://{os.environ['REDIS_IP']}:6379")
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7) 
+Session(app)
+
 blueprint = Blueprint('api', __name__, url_prefix='')
 
 class Custom_API(Api):
@@ -148,7 +167,7 @@ CORS(app)
 
 logger.info("Starting redis connection")
 logger.info("IP=>"+os.environ["REDIS_IP"]+"<")
-redisserver = redis.Redis(host=os.environ["REDIS_IP"], port=6379, db=0)
+redisserver = redis.Redis(host=os.environ["REDIS_IP"], port=6379, db=0,)
 OUTPUT_FOLDER=os.environ["OUTPUT_FOLDER"]
 OUTPUT_URL=os.environ["OUTPUT_URL"]
 
@@ -245,7 +264,7 @@ def clean_kibana_url(url,column,filter):
 
 @cached(cache=TTLCache(maxsize=1024, ttl=60))
 def getAPIKey(token):
-    if elkversion==7:
+    if elkversion>6:
         return es.get(index="nyx_apikey",id=token)
     else:
         return es.get(index="nyx_apikey",id=token,doc_type="_doc")
@@ -284,15 +303,15 @@ def getUserFromToken(request):
         if token in tokens:
             return tokens[token]
         redusr=redisserver.get("nyx_tok_"+token)
-        logger.info("nyx_fulltok_"+token)
+        #logger.info("nyx_fulltok_"+token)
         if redusr!=None:
-            logger.info("Retrieved user "+token+ " from redis.")
+            #logger.info("Retrieved user "+token+ " from redis.")
             redusrobj=json.loads(redusr)
             tokens[token]=redusrobj
             logger.info("Token reinitialized from redis cluster.")
             return redusrobj
-
-    logger.info("Invalid Token:"+token)
+    logger.info("Invalid Token")
+    #logger.info("Invalid Token:"+token)
     return None
 
 
@@ -396,7 +415,7 @@ def pushHistoryToELK(request,timespan,usr,token,error):
 @app.route('/api/v1/ui_css')
 def cssRest():    
     logger.info("CSS called")
-    if elkversion==7:
+    if elkversion>6:
         res=es.get(index="nyx_config",id="nyx_css")    
     else:
         res=es.get(index="nyx_config",id="nyx_css",doc_type="doc")    
@@ -458,7 +477,7 @@ class lambdasRest(Resource):
 class configRest(Resource):    
     def get(self):
         logger.info("Config called")
-        return {'error':"",'status':'ok','version':VERSION,'welcome':WELCOME,'icon':ICON, 'elastic_version':elkversion}
+        return {'error':"",'status':'ok','version':VERSION,'welcome':WELCOME,'icon':ICON, 'elastic_version':elkversion, "title": TITLE}
 
 
 #---------------------------------------------------------------------------
@@ -490,10 +509,25 @@ class errorRest(Resource):
 @api.doc(description="Get UI version from env.")
 class lambdasRest(Resource):
 #    @token_required("A1","A2")
+    def get(self): 
+        global line_num
+        logger.info("getting UI Version at line: "+str(line_num))
+        line_num, localuiversion = get_ui_version(line_num)
+        return {'error':"",'status':'ok','version':VERSION,'uiversion':localuiversion}
+
+
+
+#---------------------------------------------------------------------------
+# API get UI last version
+#---------------------------------------------------------------------------@name_space.route('/lambdas/<string:runner>/<string:lambdaname>')
+@name_space.route('/getClient')
+@api.doc(description="Get Client from env.")
+class lambdasClient(Resource):
+#    @token_required("A1","A2")
     def get(self):        
-        logger.info("getting UI Version: "+UIVERSION)
+        logger.info("getting CLIENT: "+CLIENT)
         
-        return {'error':"",'status':'ok','version':VERSION,'uiversion':UIVERSION}
+        return {'error':"",'status':'ok', 'client': CLIENT}        
 
 #---------------------------------------------------------------------------
 # API sendMessage
@@ -540,7 +574,8 @@ class listDir(Resource):
         req= json.loads(request.data.decode("utf-8"))
         
         path = req['path']
-        logger.info(f"path    : {path}")
+
+
 
         prepath, regex = retrieve_app_info(req['rec_id'])
 
@@ -563,7 +598,7 @@ class listDir(Resource):
 
 def retrieve_app_info(rec_id):
     try:
-        if elkversion==7:
+        if elkversion>6:
             app=es.get(index="nyx_app",id=rec_id)
         else:
             app=es.get(index="nyx_app",doc_type="doc",id=rec_id)
@@ -854,21 +889,21 @@ class reloadConfig(Resource):
     def get(self,user=None):
         logger.info(user)
         token=request.args["token"]
-        finalcategory=computeMenus({"_source":user},token)
+        finalcategory=computeMenus({"_source":user},token,"console")
         
         return {'version':VERSION,'error':"",'cred':{'token':token,'user':user},"menus":finalcategory}
 
 
-def computeMenus(usr,token):
+def computeMenus(usr,token,apptag):
     
     refresh_translations()
     if elkversion==7:
         res3=es.search(size=1000,index="nyx_app",body={"sort" : [{ "order" : "asc" }]})
+    if elkversion==8:
+        res3=es.search(size=1000,index="nyx_app",query={"match_all": {}}, sort=[{ "order" : "asc" }])
     else:
         res3=es.search(size=1000,index="nyx_app",doc_type="doc",body={"sort" : [{ "order" : "asc" }]})
     
-    dict_dashboard=get_dict_dashboards(es)
-
     categories={}
     for app in res3["hits"]["hits"]:
         appl=app["_source"]
@@ -877,30 +912,17 @@ def computeMenus(usr,token):
         if "privileges" in usr["_source"] and "privileges" in appl and not "admin" in usr["_source"]["privileges"]:
             if len([value for value in usr["_source"]["privileges"] if value in appl["privileges"]])==0:
                 continue
+        
+        #apptag="mobile"
 
-        if appl.get("type")=="kibana":
-            logger.info('compute kibana url for : '+str(appl.get('title')))
-
-            config = appl["config"]
-
-
-            old_kibana_url=config.get("url")
-
-            config["url"]=compute_kibana_url(dict_dashboard, appl)
-
-            if config.get("filtercolumn") is not None and config.get("filtercolumn")!="" and "filters" in usr["_source"] and len(usr["_source"]["filters"])>0:
-                logger.info('compute kibana url for : '+str(appl.get('title')))
-                config["url"]=clean_kibana_url(config.get('url'),config.get("filtercolumn"),usr["_source"]["filters"])
-
-            if old_kibana_url != config.get("url"):
-                logger.warning('the url calculated for app: '+appl.get('title')+' is desync from the database (ES)')
-                logger.warning(config.get("url"))
-                logger.warning(old_kibana_url)
-                logger.warning('we have to update database !!!')
-
-                app_to_index = appl.copy()
-                del app_to_index['rec_id']                
-                es.index(index=app['_index'], doc_type=app['_type'], id=app['_id'], body=app_to_index)
+        if apptag=="console":
+            if "apptags" in appl and len(appl["apptags"])>0 and apptag not in appl["apptags"]:
+                continue
+        else:
+            if "apptags" not in appl or len(appl["apptags"])==0:
+                continue
+            if apptag not in appl["apptags"]:
+                continue
 
         if appl["category"] not in categories:
             categories[appl["category"]]={"subcategories":{}}
@@ -949,19 +971,15 @@ def computeMenus(usr,token):
     
     return finalcategory
 
-
-#---------------------------------------------------------------------------
-# API login
-#---------------------------------------------------------------------------
-
 loginAPI = api.model('login_model', {
     'login': fields.String(description="The user login", required=True),
-    'password': fields.String(description="The user password.", required=True)
+    'password': fields.String(description="The user password.", required=True),
+    'app': fields.String(description="The app tag.", required=False)
 })
 
 @name_space.route('/cred/login',methods=['POST'])    
 class loginRest(Resource):
-    @api.doc(description="Send a message to the broker.")
+    @api.doc(description="login function.")
     @api.expect(loginAPI)
     def post(self):
         global tokens
@@ -974,7 +992,7 @@ class loginRest(Resource):
             cleanlogin=data["login"].split(">")[0]
 
             try:
-                if elkversion==7:
+                if elkversion>6:
                     usr=es.get(index="nyx_user",id=cleanlogin)
                 else:
                     usr=es.get(index="nyx_user",doc_type="doc",id=cleanlogin)
@@ -1001,6 +1019,8 @@ class loginRest(Resource):
                     }
                 if elkversion==7:
                     users=es.search(index="nyx_user",body=body)
+                if elkversion==8:
+                    users=es.search(index="nyx_user",query=body)
                 else:
                     users=es.search(index="nyx_user",doc_type="doc",body=body)
                 #logger.info(users)
@@ -1012,6 +1032,7 @@ class loginRest(Resource):
 
             if usr !=None and pbkdf2_sha256.verify(data["password"], usr["_source"]["password"]):
 
+                logger.info("************* Step 1  **************")
                 if usr["_source"].get("doublePhase",False)==True:
                     if "doublecode" in data:
                         logger.info("Must check code")
@@ -1034,7 +1055,7 @@ class loginRest(Resource):
                 if ">" in data["login"] and "admin" in usr["_source"]["privileges"]:
                     otheruser=data["login"].split(">")[1]
                     try:
-                        if elkversion==7:
+                        if elkversion>6:
                             usr=es.get(index="nyx_user",id=otheruser)
                         else:
                             usr=es.get(index="nyx_user",doc_type="doc",id=otheruser)
@@ -1042,58 +1063,63 @@ class loginRest(Resource):
                         usr=None
                         return jsonify({'error':"Unknown User"})
 
-                token=uuid.uuid4()
-                        
-                with tokenlock:
-                    tokens[str(token)]=usr["_source"]       #TO BE DONE REMOVE PREVIOUS TOKENS OF THIS USER  
-
-                usr["_source"]["password"]=""
-                usr["_source"]["id"]=data["login"]
-
-                #redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
-                if "admin" in usr["_source"]["privileges"]:
-                    redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
-                else:
-                    redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*12)
-
-
-                finalcategory=computeMenus(usr,str(token))
-
-                all_priv=[]
-                all_filters=[]
-                if "admin" in usr["_source"]["privileges"]:
-                    all_priv=[]
-                    all_filters=[]
-
-                    all_priv = loadData(es,conn,'nyx_privilege',{},'doc',False,(None, None, None)
-                                                    ,True,usr['_source'],None,None,None)['records']
-
-                    all_filters = loadData(es,conn,'nyx_filter',{},'doc',False,(None, None, None)
-                                                    ,True,usr['_source'],None,None,None)['records']
-
-                resp=make_response(jsonify({'version':VERSION,'error':"",'cred':{'token':token,'user':usr["_source"]},
-                                                            "menus":finalcategory,"all_priv":all_priv,"all_filters":all_filters}))
-                resp.set_cookie('nyx_kibananyx', str(token))
-
-                setACookie("nodered",usr["_source"]["privileges"],resp,token)
-                setACookie("anaconda",usr["_source"]["privileges"],resp,token)
-                setACookie("cerebro",usr["_source"]["privileges"],resp,token)
-                setACookie("kibana",usr["_source"]["privileges"],resp,token)
-                setACookie("logs",usr["_source"]["privileges"],resp,token)
-
-                pushHistoryToELK(request,0,usr["_source"], str(token),"")
-                return resp
+                logger.info("************* Step 2  **************")
+                return login_second_step(usr,data)
             else:
                 return jsonify({'error':"Bad Credentials"})
 
 
         return jsonify({'error':"Bad Request"})
+    
+def login_second_step(usr,data):
+    token=uuid.uuid4()
+    logger.info(getUserFromToken)
+    with tokenlock:
+        tokens[str(token)]=usr["_source"]       #TO BE DONE REMOVE PREVIOUS TOKENS OF THIS USER  
+
+    usr["_source"]["password"]=""
+    usr["_source"]["id"]=data["login"]
+
+    redisserver.set("nyx_tok_"+str(token),json.dumps(usr["_source"]),3600*24)
+
+    apptag="console"
+    if "app" in data:
+        apptag=data["app"]
+
+    finalcategory=computeMenus(usr,str(token),apptag)
+
+    all_priv=[]
+    all_filters=[]
+    if "admin" in usr["_source"]["privileges"] or "user" in usr["_source"]["privileges"]:
+        all_priv=[]
+        all_filters=[]
+
+        all_priv = loadData(es,conn,'nyx_privilege',{},'doc',False,(None, None, None)
+                                        ,True,usr['_source'],None,None,None)['records']
+
+        all_filters = loadData(es,conn,'nyx_filter',{},'doc',False,(None, None, None)
+                                        ,True,usr['_source'],None,None,None)['records']
+
+    resp=make_response(jsonify({'version':VERSION,'error':"",'cred':{'token':token,'user':usr["_source"]},
+                                                "menus":finalcategory,"all_priv":all_priv,"all_filters":all_filters}))
+    resp.set_cookie('nyx_kibananyx', str(token),secure=True,httponly=True)
+
+    setACookie("nodered",usr["_source"]["privileges"],resp,token)
+    setACookie("anaconda",usr["_source"]["privileges"],resp,token)
+    setACookie("cerebro",usr["_source"]["privileges"],resp,token)
+    setACookie("kibana",usr["_source"]["privileges"],resp,token)
+    setACookie("logs",usr["_source"]["privileges"],resp,token)
+    setACookie("private",usr["_source"]["privileges"],resp,token)
+
+    pushHistoryToELK(request,0,usr["_source"], str(token),"")
+
+    return resp
 
 def setACookie(privilege,privileges,resp,token):
     
     if "admin" in privileges or (len(privileges)>0 and privilege in privileges):
         redisserver.set("nyx_"+privilege.lower()+"_"+str(token),"OK",3600*24)
-        resp.set_cookie('nyx_'+privilege.lower(), str(token))
+        resp.set_cookie('nyx_'+privilege.lower(), str(token),secure=True,httponly=True)
 
 #---------------------------------------------------------------------------
 # Logout
@@ -1116,48 +1142,44 @@ class logout(Resource):
         
         conn.send_message("/topic/LOGOUT_EVENT",token)
 
+        session.clear()
+        response=Response()
+        response.data=json.dumps({"error":"","azureLogoutUrl":os.environ["AZURE_AUTHORITY"]+"/oauth2/v2.0/logout"})
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
+
+
+#---------------------------------------------------------------------------
+# Forgotten password
+#---------------------------------------------------------------------------
+
+forgotten_passwordAPI = api.model('reset_password_model', {
+    'login': fields.String(description="The user login", required=True),
+})
+
+@name_space.route('/cred/forgottenpassword')
+class reset_password(Resource):
+    @check_post_parameters("login")
+    @api.doc(description="Resets a user password.")
+    @api.expect(forgotten_passwordAPI)
+    def post(self,user=None):
+        logger.info(">>> Forgotten password");
+        req= json.loads(request.data.decode("utf-8"))  
+        try:
+            usrdb=es.get(index="nyx_user",id=req["login"])
+        except:
+            return {"error":"usernotfound"}
+
+        token=randomString(25)
+
+        usrdb["_source"]["password"]=""
+        usrdb["_source"]["id"]=usrdb["_id"]
+
+        redisserver.set("nyx_tok_"+str(token),json.dumps(usrdb["_source"]),60*10)
+        conn.send_message("/queue/FORGOTTEN_PASSWORD",json.dumps({"byuser":user,"foruser":usrdb["_source"],"token":token})) 
+
         return {"error":""}
-        
-
-#---------------------------------------------------------------------------
-# Close all
-#---------------------------------------------------------------------------
-@name_space.route('/logoutall')
-class logoutall(Resource):
-    @token_required("admin","useradmin")
-    @api.doc(description="Disconnect Every Others users",params={'token': 'A valid token'})
-    def get(self,user=None):
-        logger.info(">>> Logout")
-        mytoken=request.args.get('token')
-
-        for token in tokens:
-            if token != mytoken:
-                redisserver.delete("nyx_tok_"+str(token))
-                redisserver.delete("nyx_nodered_"+str(token))
-                redisserver.delete("nyx_cerebro_"+str(token))
-                redisserver.delete("nyx_kibana_"+str(token))
-                redisserver.delete("nyx_anaconda_"+str(token))
-                redisserver.delete("nyx_logs_"+str(token))
-                if token in tokens:
-                    del tokens[token]
-
-        '''token=request.args.get('token')
-        redisserver.delete("nyx_tok_"+str(token))
-        redisserver.delete("nyx_nodered_"+str(token))
-        redisserver.delete("nyx_cerebro_"+str(token))
-        redisserver.delete("nyx_kibana_"+str(token))
-        redisserver.delete("nyx_anaconda_"+str(token))
-        redisserver.delete("nyx_logs_"+str(token))
-        if token in tokens:
-            del tokens[token]
-        
-        conn.send_message("/topic/LOGOUT_EVENT",token)'''
-
-        return {"error":""}    
-
-
-
-
+    
 #---------------------------------------------------------------------------
 # reset password
 #---------------------------------------------------------------------------
@@ -1169,7 +1191,7 @@ reset_passwordAPI = api.model('reset_password_model', {
 
 @name_space.route('/cred/resetpassword')
 class reset_password(Resource):
-    @token_required("admin","useradmin")
+    @token_required()
     @check_post_parameters("login","new_password")
     @api.doc(description="Resets a user password.",params={'token': 'A valid token'})
     @api.expect(reset_passwordAPI)
@@ -1177,7 +1199,7 @@ class reset_password(Resource):
         logger.info(">>> Reset password");
         req= json.loads(request.data.decode("utf-8"))  
         try:
-            if elkversion==7:
+            if elkversion>6:
                 usrdb=es.get(index="nyx_user",id=req["login"])
             else:
                 usrdb=es.get(index="nyx_user",doc_type="doc",id=req["login"])
@@ -1185,7 +1207,7 @@ class reset_password(Resource):
             return {"error":"usernotfound"}
             
         usrdb["_source"]["password"]=pbkdf2_sha256.hash(req["new_password"])
-        if elkversion==7:
+        if elkversion>6:
             res=es.index(index="nyx_user",body=usrdb["_source"],id=req["login"])
         else:
             res=es.index(index="nyx_user",body=usrdb["_source"],doc_type="doc",id=req["login"])
@@ -1218,14 +1240,14 @@ class change_password(Resource):
         req= json.loads(request.data.decode("utf-8"))  
         logger.info(req)
         logger.info(user)
-        if elkversion==7:
+        if elkversion>6:
             usrdb=es.get(index="nyx_user",id=user["id"])
         else:
             usrdb=es.get(index="nyx_user",doc_type="doc",id=user["id"])
         if pbkdf2_sha256.verify(req["old_password"], usrdb["_source"]["password"]):
             
             usrdb["_source"]["password"]=pbkdf2_sha256.hash(req["new_password"])
-            if elkversion==7:
+            if elkversion>6:
                 res=es.index(index="nyx_user",body=usrdb["_source"],id=user["id"])
             else:
                 res=es.index(index="nyx_user",body=usrdb["_source"],doc_type="doc",id=user["id"])
@@ -1234,7 +1256,135 @@ class change_password(Resource):
         else:
             return {"error":"wrongpassword"}
 
-    
+#---------------------------------------------------------------------------
+# Azure Athentification Section
+#---------------------------------------------------------------------------
+def _build_auth_code_flow(authority=None, scopes=None, request_url=None):
+    return _build_msal_app(authority=authority).initiate_auth_code_flow(
+        scopes or [],
+        redirect_uri=request_url)
+
+def _build_msal_app(cache=None, authority=None):
+    return msal.ConfidentialClientApplication(
+        os.environ["AZURE_CLIENT_ID"], authority=authority,
+        client_credential=os.environ["AZURE_CLIENT_SECRET"], token_cache=cache)
+
+def _load_cache():
+    cache = msal.SerializableTokenCache()
+    if session.get("token_cache"):
+        cache.deserialize(session["token_cache"])
+    return cache
+
+def _save_cache(cache):
+    if cache.has_state_changed:
+        session["token_cache"] = cache.serialize()
+
+
+@name_space.route('/checkstate')
+class azureGetLink(Resource):
+    def get(self):
+        response = Response()
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        if os.environ.get("SKIP_ACTIVE_DIRECTORY",False):
+            response.data=json.dumps({"error":"","skipActiveDirectory":True})
+            return response
+        else:
+            #nyx_kibananyx=request.cookies.get("nyx_kibananyx")
+            #if nyx_kibananyx!=None:
+            #    if redisserver.get(f"nyx_tok_{nyx_kibananyx}")!=None:
+            #        logger.info('signed in already')
+            #        return jsonify({"error":"","signedIn":True})
+            logged_out=request.args.get("loggedout")
+            logger.info(session.get("user",None))
+            logger.info(session.get("extra_data",None))
+            if session.get("user")!=None and session.get("extra_data")!=None and logged_out!="true":
+                logger.info('Azure signed in, going straight to second step')
+                response.data=json.dumps({"error":"","url":"","signedIn":False,"azureSignedIn":True})
+                return response
+            if session.get("flow")==None:
+                host_url=request.headers["Referer"]
+                endpoint=os.environ['AZURE_REDIRECT_ENDPOINT'][1:] if os.environ['AZURE_REDIRECT_ENDPOINT'][0]=="/" else os.environ['AZURE_REDIRECT_ENDPOINT'] 
+                if os.environ.get("LOCAL")=="true":
+                    host_url=""
+                    endpoint=os.environ["AZURE_REDIRECT_ENDPOINT"]
+                session["flow"] = _build_auth_code_flow(scopes=["User.Read","email"], authority=os.environ["AZURE_AUTHORITY"], request_url=f"{host_url}{endpoint}")
+            response.data=json.dumps({"error":"","url":session["flow"]["auth_uri"],"signedIn":False,"azureSignedIn":False})
+            return response
+
+@name_space.route('/azure/finished')
+class azureLogout(Resource):
+    def get(self):
+        user=session.get("user",None)
+        extra_data=session.get("extra_data",None)
+        error=session.get("error",None)
+        if error!="":
+            response=jsonify({"error":error,"finished":False})
+        elif user != None or extra_data!=None:
+            response=jsonify({"error":"","finished":True})
+        else:
+            response=jsonify({"error":"","finished":False})
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
+
+@name_space.route('/azure/gettoken')
+class azureGetToken(Resource):
+    def get(self):
+        #try:
+        cache = _load_cache()
+        result = _build_msal_app(cache=cache, authority=os.environ["AZURE_AUTHORITY"]).acquire_token_by_auth_code_flow(
+            session.get("flow", {}), request.args)
+        if "error" in result:
+            session["error"]=result["error"]
+            return
+        else:
+            session["error"]=""
+        session["user"] = result.get("id_token_claims")
+        _save_cache(cache)
+        msgraph_endpoint="https://graph.microsoft.com/v1.0/me"
+        token=result["access_token"]
+        me_data=requests.get(msgraph_endpoint,headers={'Authorization': 'Bearer ' + token}).json()
+        session["extra_data"]=me_data
+        return redirect(f"{os.environ['UI_BASE_URL']}loading")
+
+@name_space.route('/azure/secondstep')
+class azureSecondStep(Resource):
+    def get(self):
+        user=session.get("user",None)
+        extra_data=session.get("extra_data",None)
+        if user == None or extra_data==None:
+            logger.info("No user found in session")
+            return jsonify({'error':"No user found in session"}), 400
+        else:
+            email=user.get("email", None)
+            if email==None:
+                email=user.get('preferred_username',None)
+            logger.info('email: ')
+            logger.info(email)
+            if email!=None:
+                try:
+                    usr=es.get(index="nyx_user",id=email)
+                    logger.info("kown User")
+                    usr["_source"]["known_user"]=True
+                except:
+                    logger.info("Unkown User")
+                    usr={"_source":{
+                        "known_user":False, 
+                        'privileges': ["public"], 
+                        'filters': [], 
+                        "language": "en", 
+                        "login":email,
+                        "firstname":extra_data.get("givenName","?"),
+                        "lastname":extra_data.get("surname","?")
+                    }}
+                usr["_source"]["azure_login"]=True
+                data={"login":email}
+
+                resp=login_second_step(usr,data)
+                resp.headers.add('Access-Control-Allow-Credentials', 'true')
+                return resp
+            else:
+                return jsonify({'error':"No email found"}), 400
+
 
 
 #---------------------------------------------------------------------------
@@ -1288,7 +1438,7 @@ class genericQueryFilter(Resource):
         data= json.loads(request.data.decode("utf-8"))           
 
         app=None
-        if elkversion==7:
+        if elkversion>6:
             app=es.get(index="nyx_app",id=rec_id)
         else:
             app=es.get(index="nyx_app",doc_type="doc",id=rec_id)
@@ -1346,7 +1496,17 @@ class genericQueryFilter(Resource):
 
 
                 cui=can_use_indice(app["config"]["index"],user,None)
-                query={"from":0,"size":0,"aggregations":{qcol:{"terms":{"field":qcol,"size":200,"order":[{"_key":"asc"}]}}}}
+
+                size = 200
+
+                try:
+                    if queryf.get('querySize'):
+                        size = int(queryf.get('querySize'))
+                except:
+                    logger.warning('unable to retrieve query size')
+                    pass
+
+                query={"from":0,"size":0,"aggregations":{qcol:{"terms":{"field":qcol,"size":size,"order":[{"_key":"asc"}]}}}}
                 query["query"]=cui[1]
                 #logger.info(json.dumps(query))
                 if index>0 and len(alladdqueries[index-1])>0 and len(addquery)>0 and "query" in query and "bool" in query["query"] and "must" in query["query"]["bool"]:
@@ -1363,8 +1523,10 @@ class genericQueryFilter(Resource):
                         "format": "epoch_millis"
                     }
                     query["query"]["bool"]["must"].append(newobj )
-
-                res=es.search(index=app["config"]["index"],body=query)
+                if elkversion==8: 
+                    res=es.search(index=app["config"]["index"],query=query)
+                else:
+                    res=es.search(index=app["config"]["index"],body=query)
                 #logger.info()
                 queryf["buckets"]=res["aggregations"][qcol].get("buckets",[])
 #                if queryf["index"] not in [_["key"] for _ in queryf["buckets"]]:
@@ -1438,7 +1600,7 @@ class extLoadDataSource(Resource):
         end=request.args.get("end",None)
         logger.info("Data source called "+dsid+" start:"+str(start)+" end:"+str(end))
 
-        if elkversion==7:
+        if elkversion>6:
             ds=es.get(index="nyx_datasource",id=dsid)
         else:
             ds=es.get(index="nyx_datasource",doc_type="doc",id=dsid)
@@ -1533,6 +1695,18 @@ def kibanaLoad(user=None):
     logger.info(matchrequest)
     return kibanaData(es,conn,matchrequest,user,outputformat,True,OUTPUT_URL,OUTPUT_FOLDER)
 
+@app.route('/api/v1/kibana/api/spaces/space',methods=['GET'])
+@token_required()
+def kibanaSpaces(user=None):
+    return requests.get("http://kibana:5601/api/spaces/space").text
+
+@app.route('/api/v1/kibana/s/<space_id>/api/saved_objects/_find',methods=['GET'])
+@token_required()
+def kibanaDashboards(user=None, space_id=None):
+    per_page=request.args.get('per_page')
+    page=request.args.get('page')
+    return requests.get(f"http://kibana:5601/s/{space_id}/api/saved_objects/_find?type=dashboard&per_page={per_page}&page={page}").text
+
 #---------------------------------------------------------------------------
 # API generic crud
 #---------------------------------------------------------------------------
@@ -1545,7 +1719,7 @@ def pg_genericCRUD(index,col,pkey,user=None):
     logger.info("PG Generic Table="+index+" Col:"+col+" Pkey:"+ pkey+" Method:"+met);    
 
     if met== 'get':   
-        query="select * from "+index+ " where "+col+"="+str(pkey)
+        query="select * from "+index+ " where \""+col+"\"="+str(pkey)
 
         description=None
         with get_postgres_connection().cursor() as cursor:
@@ -1555,8 +1729,8 @@ def pg_genericCRUD(index,col,pkey,user=None):
             
             res2={}
             for index,x in enumerate(cursor.description):
-                if x[1] in [1082,1184,1114]:
-                    print(res[index])
+                if (x[1] in [1082,1184,1114]) and (res[index]!=None):
+                    #print(res[index])
                     res2[x[0]]=res[index].isoformat()
                 else:
                     res2[x[0]]=res[index]
@@ -1572,10 +1746,10 @@ def pg_genericCRUD(index,col,pkey,user=None):
         
         if pkey!="NEW":
             query="UPDATE "+index+" set "
-            cols=",".join([""+str(_["key"])+"='"+str(_["value"])+"' " for _ in data["record"]])
+            cols=",".join(["\""+str(_["key"])+"\"='"+str(_["value"])+"' " for _ in data["record"]])
             query+=cols
 
-            query+=" where "+col+"="+str(pkey)
+            query+=" where \""+col+"\"="+str(pkey)
             logger.info(query)
             with get_postgres_connection().cursor() as cursor:
                 res=cursor.execute(query)
@@ -1583,7 +1757,7 @@ def pg_genericCRUD(index,col,pkey,user=None):
             pg_connection.commit()
         else:
             query="INSERT INTO "+index+"  "
-            cols=",".join([""+str(_["key"])+"" for _ in data["record"]])
+            cols=",".join(["\""+str(_["key"])+"\"" for _ in data["record"]])
             query+="("+cols+") VALUES ("
             vals=",".join(["'"+str(_["value"])+"'" for _ in data["record"]])
             query+=vals+")"
@@ -1599,7 +1773,7 @@ def pg_genericCRUD(index,col,pkey,user=None):
     elif met== 'delete':
         try:
             with pg_connection.cursor() as cursor:
-                query="delete from "+index+ " where "+col+"="+str(pkey)
+                query="delete from "+index+ " where \""+col+"\"="+str(pkey)
                 cursor.execute(query)
 #                res=cursor.fetchone()
 #                logger.info(res)
@@ -1617,7 +1791,6 @@ def pg_genericCRUD(index,col,pkey,user=None):
 # API generic crud
 #---------------------------------------------------------------------------
 @app.route('/api/v1/generic/<index>/<object>',methods=['GET','POST','DELETE'])
-@api.doc(description="Generics Cruds.",params={'token': 'A valid token'})
 @token_required()
 def genericCRUD(index,object,user=None):
     global es,elkversion
@@ -1633,7 +1806,9 @@ def genericCRUD(index,object,user=None):
 
     if met== 'get':        
         try:
-            if elkversion==7:
+            if elkversion>7:
+                ret=es.get(index=index,id=object).body
+            elif elkversion==7:
                 ret=es.get(index=index,id=object)
             else:
                 ret=es.get(index=index,id=object,doc_type=request.args.get("doc_type","doc"))
@@ -1642,8 +1817,7 @@ def genericCRUD(index,object,user=None):
         return {'error':"","data":ret}
     elif met== 'post':
         try:
-            data= request.data.decode("utf-8")    
-                
+            data= request.data.decode("utf-8")        
             if index=="nyx_user":
                 dataobj=json.loads(data)
                 if("$pbkdf2-sha256" not in dataobj["password"]):
@@ -1653,13 +1827,13 @@ def genericCRUD(index,object,user=None):
             dataobj=json.loads(data)        
             if 'update' in dataobj:
                 data = dataobj['data']
-                if elkversion==7:
+                if elkversion>6:
                     ret = es.update(index=index,body=data,id=object)
                 else:
                     es.update(index=index,body=data,doc_type=request.args.get("doc_type","doc"),id=object)
                 ret = logger.info(ret)
             else:    
-                if elkversion==7:
+                if elkversion>6:
                     es.index(index=index,body=data,id=object)
                 else:
                     es.index(index=index,body=data,doc_type=request.args.get("doc_type","doc"),id=object)
@@ -1669,7 +1843,7 @@ def genericCRUD(index,object,user=None):
 
     elif met== 'delete':
         try:
-            if elkversion==7:
+            if elkversion>6:
                 ret=es.delete(index=index,id=object)
             else:
                 ret=es.delete(index=index,id=object,doc_type=request.args.get("doc_type","doc"))
@@ -1686,7 +1860,6 @@ def genericCRUD(index,object,user=None):
             ret = logger.info(ret)
         except:
             return {'error':"unable to update data"}'''
-
 
 
     send_event(user=user, indice=index, method=met, _id=object, doc_type=request.args.get("doc_type","doc"), obj=data)
@@ -1743,14 +1916,14 @@ def handleAPICalls():
                     indexdatepattern="nyx_apicalls-"+datetime.now().strftime("%Y.%m.%d").lower()
                     for api in apis:
                         action={}
-                        if elkversion==7:
+                        if elkversion>6:
                             action["index"]={"_index":indexdatepattern}
                         else:
                             action["index"]={"_index":indexdatepattern,"_type":"doc"}
 
                         messagebody+=json.dumps(action)+"\r\n"
                         messagebody+=json.dumps(api)+"\r\n"
-                    es.bulk(messagebody)
+                    es.bulk(body=messagebody)
             if conn != None:
                 logger.debug("Sending Life Sign")
                 conn.send_life_sign()
@@ -1783,55 +1956,6 @@ class esMapping(Resource):
             return {"error":"","data":None}
 
 
-#---------------------------------------------------------------------------
-# API getRecord
-#---------------------------------------------------------------------------
-@name_space.route('/getrecord/<string:_index>/<string:_id>')
-@api.doc(description="Return a record based on his ID.", params={'token': 'A valid token'})
-class getRecord(Resource):
-    @token_required()
-    def get(self, _index='', _id='', user=None):
-        global es
-        logger.info('get record with ID: '+_id+' in Index: '+_index)
-        try:
-            record = es.get(index=_index,id=_id)
-            return {"error":"","data":record}
-        except Exception as er:
-            return {"error":er,"data":None}
-            
-
-#---------------------------------------------------------------------------
-# API getUniqueValue
-#---------------------------------------------------------------------------
-@name_space.route('/getuniquevalue/<string:_index>/<string:field>')
-@api.doc(description="Return all unique value for a field in an index", params={'token': 'A valid token'})
-class getRecord(Resource):
-    @token_required()
-    def get(self, _index='', field='', user=None):
-        global es
-        logger.info('Search all values for field: '+ field +' in Index: '+_index)
-        query = {
-            "size": 0,  # Ne retourne pas de documents, juste les résultats de l'agrégation
-            "aggs": {
-                "unique_values": {
-                    "terms": {
-                        "field": field,
-                        "size": 10000  # Taille maximale des résultats, ajustez selon vos besoins
-                    }
-                }
-            }
-}
-        try:
-            # Exécute la requête
-            response = es.search(index=_index, body=query)
-
-            # Récupère les valeurs uniques
-            unique_values = [bucket['key'] for bucket in response['aggregations']['unique_values']['buckets']]
-
-            return {"error":"","data":unique_values}
-        except Exception as er:
-            return {"error":er,"data":None}
-
 
 #---------------------------------------------------------------------------
 # refresh_indices
@@ -1843,6 +1967,8 @@ def refresh_indices():
     logger.info("Refresh Indices")    
     if elkversion==7:
         indices=es.search(index="nyx_indice",body={})["hits"]["hits"]
+    elif elkversion==8:
+        indices=es.search(index="nyx_indice",query={"match_all": {}})["hits"]["hits"]    
     else:
         indices=es.search(index="nyx_indice",body={},doc_type="doc")["hits"]["hits"]
     last_indices_refresh=datetime.now()
@@ -1857,9 +1983,10 @@ def refresh_translations():
     logger.info("Refreshing Translations")    
     if elkversion==7:
         translationsrec=es.search(index="nyx_translation",body={"size":1000})["hits"]["hits"]
+    elif elkversion>7:
+        translationsrec=es.search(index="nyx_translation",query={"match_all": {}}, size=1000)["hits"]["hits"]    
     else:
-        #translationsrec=es.search(index="nyx_translation",body={"size":1000},doc_type="doc")["hits"]["hits"]
-        translationsrec=es.search(index="nyx_translation",body={"size":1000})["hits"]["hits"]
+        translationsrec=es.search(index="nyx_translation",body={"size":1000},doc_type="doc")["hits"]["hits"]
 
     for tran in translationsrec:    
         source=tran["_source"]
@@ -1957,118 +2084,6 @@ def can_use_indice(indice,user,query):
     
     return (True,query,resultsmustbefiltered)
 
-
-#---------------------------------------------------------------------------
-# compute kibana url
-#---------------------------------------------------------------------------
-def compute_kibana_url(dashboard_dict, appl):
-    if appl.get('config').get('kibanaId') is None:
-        return appl.get('config').get('url')
-
-    url = "/dashboard/" + appl.get('config')['kibanaId'] + ""
-
-    time = "from:now-7d,mode:quick,to:now"
-
-    if appl.get('config').get('kibanaTime') is not None:
-        time = appl.get('config').get('kibanaTime')
-
-    refresh = "refreshInterval:(pause:!t,value:0)"
-
-    if appl.get('timeRefresh') and appl.get('timeRefreshValue'):
-        if 'refreshInterval' in appl.get('timeRefreshValue'): # to handle the transition, we want to keep only the else part
-            refresh = appl.get('timeRefreshValue')
-        else: 
-            refresh = 'refreshInterval:(pause:!f,value:'+str(appl.get('timeRefreshValue'))+')'
-
-    try:
-        dash = dashboard_dict[appl.get('config').get('kibanaId')]
-    except:
-        logger.error("Unable to compute kibana URL")
-        logger.error(appl.get('config'))
-        return 'INVALIDURL'
-
-    dash_obj = dash.get('_source').get('dashboard')
-
-    url += "?embed=true&_g=("+refresh+",time:(" + time +"))"
-    url += "&_a=(description:'" + dash_obj.get('description') + "'"
-    url += ",filters:!(),fullScreenMode:!f"  
-
-    if dash_obj.get('optionsJSON'):
-        options = json.loads(dash_obj.get('optionsJSON'))
-
-        # {'darkTheme': False, 'hidePanelTitles': False, 'useMargins': True} => 'darkTheme:!f,hidePanelTitles:!f,useMargins:!t'
-        url_options = ','.join([str(k)+':'+str(v) for k, v in options.items()]).replace('True', '!t').replace('False', '!f')
-        url += ",options:(" + url_options + ")"
-    else:
-        url += ",options:()"
-
-    panels = []
-    panels_json = json.loads(dash_obj.get('panelsJSON'))
-
-    for pan in panels_json:
-        if dash.get('_source').get('migrationVersion') and \
-           dash.get('_source').get('migrationVersion').get('dashboard') in ['7.0.0','7.1.0','7.2.0','7.3.0']:
-            for ref in dash.get('_source').get('references'):
-                if ref.get('name')==pan.get('panelRefName') :
-                    pan['id']=ref.get('id')  
-                    pan['type']=ref.get('type')  
-
-        if pan is not None and pan.get("embeddableConfig") is not None and pan["embeddableConfig"].get("colors") is not None:
-            newcols={}
-            for colkey in pan["embeddableConfig"]["colors"]:
-                newcols[colkey.replace("%","%25").replace(" ","%20")]=pan["embeddableConfig"]["colors"][colkey]
-            pan["embeddableConfig"]["colors"]=newcols
-
-
-        if pan is not None and pan.get("embeddableConfig") is not None and pan["embeddableConfig"].get( "vis") is not None and pan["embeddableConfig"]["vis"].get("colors") is not None:
-            newcols={}
-            for colkey in pan["embeddableConfig"]["vis"]["colors"]:
-                newcols[colkey.replace("%","%25").replace(" ","%20")]=pan["embeddableConfig"]["vis"]["colors"][colkey]
-            pan["embeddableConfig"]["vis"]["colors"]=newcols
-
-
-        panels.append(prison.dumps(pan))
-
-    url += ",panels:!(" + ','.join(panels).replace('#', "%23").replace('&', "%26") + ")"
-
-    query = "query:(language:lucene,query:'*')"
-
-    if dash_obj.get('kibanaSavedObjectMeta') and dash_obj.get('kibanaSavedObjectMeta').get('searchSourceJSON'):
-        query_2 = json.loads(dash_obj.get('kibanaSavedObjectMeta').get('searchSourceJSON'))
-
-        if query_2.get('query'):
-            query = 'query:'+prison.dumps(query_2.get('query'))
-
-    url += "," + query + ",timeRestore:!f,title:Test,viewMode:view)";  
-
-    space = ''
-    if dash.get('_source').get('namespace') and dash.get('_source').get('namespace') != 'default':
-        space = 's/' + dash.get('_source').get('namespace')
-
-    return ('./kibananyx/'+space+"/app/kibana#"+url)
-
-#---------------------------------------------------------------------------
-# get dictionary of dashboards
-#---------------------------------------------------------------------------
-def get_dict_dashboards(es):
-    query={
-        "query": {
-            "bool": {
-                "must": [
-                        {
-                        "query_string": {
-                            "query": "type: dashboard"
-                        }
-                    }
-                ]
-            }
-        }
-    }
-
-    res=es.search(index=".kibana", body=query, size=10000)
-    return {dash['_id'].split(':')[-1]: dash for dash in res['hits']['hits']}
-
-
 #=============================================================================
 
 def messageReceived(destination,message,headers):
@@ -2087,7 +2102,7 @@ def messageReceived(destination,message,headers):
 #>> AMQC
 server={"ip":os.environ["AMQC_URL"],"port":os.environ["AMQC_PORT"]
                 ,"login":os.environ["AMQC_LOGIN"],"password":os.environ["AMQC_PASSWORD"]}
-#logger.info(server)                
+logger.info(server)                
 conn=amqstompclient.AMQClient(server
     , {"name":MODULE,"version":VERSION,"lifesign":"/topic/NYX_MODULE_INFO"},['/topic/LOGOUT_EVENT','/topic/NYX_LAMBDA_RESTAPI'],callback=messageReceived)
 #conn,listener= amqHelper.init_amq_connection(activemq_address, activemq_port, activemq_user,activemq_password, "RestAPI",VERSION,messageReceived)
@@ -2099,8 +2114,8 @@ es=None
 logger.info (os.environ["ELK_SSL"])
 
 if os.environ["ELK_SSL"]=="true":
-    host_params = {'host':os.environ["ELK_URL"], 'port':int(os.environ["ELK_PORT"]), 'use_ssl':True}
-    es = ES([host_params], connection_class=RC, http_auth=(os.environ["ELK_LOGIN"], os.environ["ELK_PASSWORD"]),  use_ssl=True ,verify_certs=False)
+    host_params=os.environ["ELK_URL"]
+    es = ES([host_params], http_auth=(os.environ["ELK_LOGIN"], os.environ["ELK_PASSWORD"]), verify_certs=True)
 else:
     host_params="http://"+os.environ["ELK_URL"]+":"+os.environ["ELK_PORT"]
     es = ES(hosts=[host_params])
@@ -2123,8 +2138,10 @@ try:
             logger.info("lib."+ext_lib.replace(".py","")) 
 
             module = importlib.import_module("lib."+ext_lib.replace(".py",""))
+            logger.info('test')
             module.config(api,conn,es,redisserver,token_required)
-except:
+except Exception as er:
+    logger.info(er)
     logger.info('no lib directory found')
 
 if __name__ != '__main__':
@@ -2137,4 +2154,4 @@ if __name__ != '__main__':
 
 if __name__ == '__main__':    
     logger.info("AMQC_URL          :"+os.environ["AMQC_URL"])
-    app.run(threaded=False,host= '0.0.0.0')
+    app.run(threaded=False,host='0.0.0.0', port=5001)

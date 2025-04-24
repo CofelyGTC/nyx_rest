@@ -8,7 +8,6 @@ import traceback
 import pandas as pd
 from datetime import datetime
 from datetime import timedelta
-from elasticsearch.client import IndicesClient
 
 from cachetools import cached, LRUCache, TTLCache
 
@@ -17,7 +16,7 @@ from cachetools import cached, LRUCache, TTLCache
 def get_mappings(es,index):
     finalmaps={}
 
-    maps=es.indices.get_mapping(index)
+    maps=es.indices.get_mapping(index=index)
     if "properties" in maps[list(maps)[0]]["mappings"]:
         maps2=maps[list(maps)[0]]["mappings"]["properties"]
         for field in maps2:
@@ -48,7 +47,7 @@ def filterReports(res,user):
 
     if "admin" in user["privileges"]:
         return res
-    return list(filter(lambda x:True if x["_source"]["creds"]["user"].get("user","NA")==user["id"] else False,res))
+    return list(filter(lambda x:True if x["_source"]["creds"]["user"].get("id","NA")==user["id"] else False,res))
 
 def filterReportDefs(res,user):
     logger=logging.getLogger()
@@ -167,14 +166,26 @@ def loadData(es,conn,index,data,doc_type,download,cui,is_rest_api,user,outputfor
                 dat[key+".keyword"]=dat[key]
                 del dat[key]
 
+    logger.info("************LOAD DATA**************")
+    logger.info(data)
 
+    
+    
     if fromval ==0:        
-        if elkversion==7:
+        if elkversion == 7:
             response = es.search(
                 index=index,
                 body=json.dumps(data),
                 scroll='1m',
             )
+        elif elkversion == 8:
+            if data == {}:
+                data = {"query":{"match_all": {}}}
+            response = es.search(
+                index=index,
+                body=data,
+                scroll='1m',
+            )    
         else:
             response = es.search(
                 index=index,
@@ -210,11 +221,21 @@ def loadData(es,conn,index,data,doc_type,download,cui,is_rest_api,user,outputfor
             scroll_ids.append(response['_scroll_id'])
             response = es.scroll(scroll_id=response['_scroll_id'], scroll='1m')
     else:
-        if elkversion==7:
+        if elkversion == 7:
             response = es.search(
                 index=index,
-                body=json.dumps(data)
+                body=json.dumps(data),
+                scroll='1m',
             )
+        elif elkversion == 8:
+            if data == {}:
+                data = {"query":{"match_all": {}}}
+            response = es.search(
+                index=index,
+                body=data,
+                # scroll='1m',
+            )  
+
         else:
             response = es.search(
                 index=index,

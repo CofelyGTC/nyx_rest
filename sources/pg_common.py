@@ -16,7 +16,7 @@ from cachetools import cached, LRUCache, TTLCache
 def getAppByID(es,appid):
     logger=logging.getLogger()
     logger.info("Loading APP:>>"+appid)
-    res=es.get("nyx_app",id=appid,doc_type="doc")
+    res=es.get(index="nyx_app",id=appid)
 
     return res
 
@@ -156,7 +156,7 @@ def loadPGData(es,appid,pgconn,conn,data,download,is_rest_api,user,outputformat,
 
         order=""
         if data!=None and "sort" in data and "column" in data["sort"]:
-            order=" ORDER BY "+data["sort"]["column"]
+            order=" ORDER BY \""+data["sort"]["column"]+"\""
             if "order" in data["sort"] and data["sort"]["order"]=="descending":
                 order+=" DESC "
             #page=data["page"]

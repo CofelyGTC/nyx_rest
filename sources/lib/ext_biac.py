@@ -258,7 +258,7 @@ def update_kpi101_monthly(es, month, number_of_call_1=-1, number_of_call_2=-1, n
     obj['datetime'] = local_timezone.localize(start_dt)
     _id      = int(obj['datetime'].timestamp())*1000
     
-    res = es.index(index="biac_kpi101_monthly", doc_type='doc', id=_id, body=json.dumps(obj, cls=DateTimeEncoder))
+    res = es.index(index="biac_kpi101_monthly", id=_id, body=json.dumps(obj, cls=DateTimeEncoder))
     
     logger.info(res)
     
@@ -429,7 +429,7 @@ def update_month_kpi104(es, month):
 
     obj_past = None
     try:
-        obj_past = es.get(index="biac_kpi104_monthly", doc_type='doc', id=start_dt.astimezone(local_timezone))['_source']
+        obj_past = es.get(index="biac_kpi104_monthly", id=start_dt.astimezone(local_timezone))['_source']
     except elasticsearch.NotFoundError:
         logger.error("Unable to retrive past data")
         logger.error(error)
@@ -441,7 +441,7 @@ def update_month_kpi104(es, month):
             'shift_presence' : 0,
             'percentage'     : 100
         }
-        es.index(index="biac_kpi104_monthly", doc_type='doc', id=obj_past['@timestamp'], body=json.dumps(obj_past, cls=DateTimeEncoder))
+        es.index(index="biac_kpi104_monthly", id=obj_past['@timestamp'], body=json.dumps(obj_past, cls=DateTimeEncoder))
 
     logger.info(obj_past)
 
@@ -462,13 +462,13 @@ def update_month_kpi104(es, month):
         try:
             shift_presence = df[df['value']]['value'].count()
             max_dt = max(df[df['value']]['dt']).to_pydatetime().astimezone(local_timezone)
-            shift_number   = max_dt.day * 6
+            shift_number   = max_dt.day * 3
             percentage = 0
         except: 
             logger.info('shift_presence to 0')
 
             if obj_past['shift_number'] != 0:
-                shift_number   = 6
+                shift_number   = 3
                 shift_presence   = 0
                 percentage = 0
 
@@ -494,7 +494,7 @@ def update_month_kpi104(es, month):
         
     logger.info(json.dumps(obj, cls=DateTimeEncoder))
     
-    res = es.index(index="biac_kpi104_monthly", doc_type='doc', id=obj['@timestamp'], body=json.dumps(obj, cls=DateTimeEncoder))
+    res = es.index(index="biac_kpi104_monthly", id=obj['@timestamp'], body=json.dumps(obj, cls=DateTimeEncoder))
     logger.info(res)
 
 def update_kpi104_monthly(es, date):
@@ -607,10 +607,10 @@ def put_default_values_kpi600_monthly(es, entities, month):
     for index, row in df_kpi600.iterrows():
         action = {}
         action["index"] = {"_index": 'biac_kpi600_monthly',
-            "_type": "doc", "_id": row['_id']}
+             "_id": row['_id']}
 
         try:
-            res=es.get(index='biac_kpi600_monthly',doc_type="doc",id= row['_id'])
+            res=es.get(index='biac_kpi600_monthly',id= row['_id'])
             logger.info("Record "+row['_id']+ " found. Continuing...")
             continue
         except:
@@ -648,7 +648,7 @@ def get_kpi600_value(es, lot, kpi600_technic, month):
 
     ret = None
     try:
-        res = es.get(index='biac_kpi600_monthly', doc_type='doc', id=es_id)
+        res = es.get(index='biac_kpi600_monthly', id=es_id)
         ret = res['_source']
 
         logger.info('=='*20)
@@ -679,7 +679,7 @@ def get_kpi600_value(es, lot, kpi600_technic, month):
     es_id = (str(lot)+'_'+kpi600_technic+'_'+str(int(next_month_dt.timestamp()*1000))).lower()
     
     try:
-        res = es.get(index='biac_kpi600_monthly', doc_type='doc', id=es_id)
+        res = es.get(index='biac_kpi600_monthly', id=es_id)
     except elasticsearch.NotFoundError:
         print('setting default next month')
         put_default_values_kpi600_monthly(es, entities, next_month_dt)

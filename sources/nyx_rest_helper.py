@@ -26,7 +26,7 @@ from logstash_async.handler import AsynchronousLogstashHandler
 from common import loadData ,kibanaData
 from pg_common import loadPGData
 
-VERSION="0.1.0"
+VERSION="0.1.1"
 MODULE="NYX_Helper"
 QUEUE=["/queue/REST_LOAD_DATA","/queue/REST_LOAD_PGDATA","/queue/REST_LOAD_KIBANA"]
 
@@ -123,67 +123,70 @@ def sendMail(task,mes):
     #logger.info(task)
     #logger.info(mes)
     
-    print(os.environ["SMTP_TLS"])
+    if os.environ['MAIL_MODE'] == "SMTP":
+        print(os.environ["SMTP_TLS"])
 
-    if os.environ["SMTP_SSL"]=="true":
-        logger.info("OPENING SERVER SSL")
-        server = smtplib.SMTP_SSL(SMTP_ADDRESS, SMTP_PORT)
-        logger.info("SERVER OPENED")    
-        server.ehlo()
+        if os.environ["SMTP_SSL"]=="true":
+            logger.info("OPENING SERVER SSL")
+            server = smtplib.SMTP_SSL(SMTP_ADDRESS, SMTP_PORT)
+            logger.info("SERVER OPENED")    
+            server.ehlo()
+        else:
+            logger.info("OPENING SERVER")
+            server = smtplib.SMTP(SMTP_ADDRESS, SMTP_PORT)
+            logger.info("SERVER OPENED")  
+
+        if os.environ["SMTP_TLS"]=="true":
+            logger.info("START TLS")
+            server.starttls()
+
+
+        logger.info("SERVER OPENED2")
+        if len(SMTP_USER)>0:
+            server.login(SMTP_USER, SMTP_PASSWORD)
+
+        logger.info("SERVER OPENED3")
+
+        msg = MIMEMultipart()
+        msg['Subject'] = "Data From NYX"
+        msg['From'] = SMTP_FROM
+        msg['To'] = mes["user"]["id"]
+        msg.preamble = 'Data From Nyx'
+        text="""Dear USER
+
+    Please find attached your data:
+
+    - Records: RECORDS
+    - Export Time: EXPORT (ms)
+
+    Regards
+    """
+        text=text.replace("USER",mes["user"]["firstname"]+" "+mes["user"]["lastname"])
+        text=text.replace("RECORDS",str(task["total"]))
+        text=text.replace("EXPORT",str(task["took"]))
+        
+        logger.info(text)
+        msg.attach(MIMEText(text))
+
+        #extension=mes["outputformat"]
+
+        logger.info("Zipping file")
+        file_zip = zipfile.ZipFile("report.zip", 'w')
+        file_zip.write(task["file"], compress_type=zipfile.ZIP_DEFLATED)
+        file_zip.close()
+        #extension=".zip"
+
+        part = MIMEBase('application', "octet-stream")
+        part.set_payload(open("report.zip", "rb").read())
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', 'attachment; filename="'+"report"+".zip"+'"')
+        msg.attach(part)
+
+        res=server.send_message( msg)
+        logger.info("Mail sent to:"+mes["user"]["id"])
+        logger.info(res)
     else:
-        logger.info("OPENING SERVER")
-        server = smtplib.SMTP(SMTP_ADDRESS, SMTP_PORT)
-        logger.info("SERVER OPENED")  
-
-    if os.environ["SMTP_TLS"]=="true":
-        logger.info("START TLS")
-        server.starttls()
-
-
-    logger.info("SERVER OPENED2")
-    if len(SMTP_USER)>0:
-        server.login(SMTP_USER, SMTP_PASSWORD)
-
-    logger.info("SERVER OPENED3")
-
-    msg = MIMEMultipart()
-    msg['Subject'] = "Data From NYX"
-    msg['From'] = SMTP_FROM
-    msg['To'] = mes["user"]["id"]
-    msg.preamble = 'Data From Nyx'
-    text="""Dear USER
-
-Please find attached your data:
-
-- Records: RECORDS
-- Export Time: EXPORT (ms)
-
-Regards
-"""
-    text=text.replace("USER",mes["user"]["firstname"]+" "+mes["user"]["lastname"])
-    text=text.replace("RECORDS",str(task["total"]))
-    text=text.replace("EXPORT",str(task["took"]))
-    
-    logger.info(text)
-    msg.attach(MIMEText(text))
-
-    #extension=mes["outputformat"]
-
-    logger.info("Zipping file")
-    file_zip = zipfile.ZipFile("report.zip", 'w')
-    file_zip.write(task["file"], compress_type=zipfile.ZIP_DEFLATED)
-    file_zip.close()
-    #extension=".zip"
-
-    part = MIMEBase('application', "octet-stream")
-    part.set_payload(open("report.zip", "rb").read())
-    encoders.encode_base64(part)
-    part.add_header('Content-Disposition', 'attachment; filename="'+"report"+".zip"+'"')
-    msg.attach(part)
-
-    res=server.send_message( msg)
-    logger.info("Mail sent to:"+mes["user"]["id"])
-    logger.info(res)
+        print("To be continued")
 
 def remoteLoadData(message):
     logger.info("=== "*10)

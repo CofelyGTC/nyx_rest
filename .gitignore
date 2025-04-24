@@ -1,3 +1,7 @@
+./sources/logs*
+./sources/test*
+
+.vscode*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -86,6 +90,7 @@ celerybeat-schedule
 .venv
 env/
 venv/
+venv3.7/
 ENV/
 env.bak/
 venv.bak/
@@ -108,3 +113,6 @@ sources/starthelper.sh
 sources/startrestgunicorn.sh
 sources/startrest2.sh
 .vscode/settings.json
+
+#google auth
+sources/client_secret_*.json
