@@ -51,41 +51,6 @@ from elasticsearch import Elasticsearch as ES
 import dotenv, linecache
 dotenv.load_dotenv()
 
-    
-def get_ui_version(line_num=None):
-    try:
-        store_path="./nyx_ui/store/store.js"
-        if(line_num!=-1):
-            linecache.checkcache()
-            line=linecache.getline(store_path,line_num)
-            logger.info("we have line number")
-            if(line.find("version")!=-1):
-                logger.info(f"line found : {line}")
-                UIVERSION=line.split("\"")[1]
-                return line_num, UIVERSION
-
-        logger.info("no line number")
-        f = open(store_path, "r")
-        lines=f.readlines()
-        for i,line in enumerate(lines,start=1):
-            if(line.find("version")!=-1):
-                logger.info(f"version found at line: {i} and line is {line}")
-                UIVERSION=line.split("\"")[1]
-                break
-    except Exception as e:
-        logger.info(f"got an error somewhere: error is: {e}")
-        i, UIVERSION = None, os.environ["UIVERSION"]
-        logger.info(f"return is, {i},{UIVERSION}")
-
-
-    return i, UIVERSION
-
-if os.environ.get("LOCAL")=="true":
-    dotenv.load_dotenv()  # config = {"USER": "foo", "EMAIL": "foo@example.org"}
-    line_num, UIVERSION = None, os.environ["UIVERSION"]
-    #line_num, UIVERSION=get_ui_version()
-line_num=-1
-
 VERSION=os.getenv("VERSION","0.0.0")
 MODULE="nyx_rest"+"_"+str(os.getpid())
 
@@ -503,22 +468,7 @@ class errorRest(Resource):
 
 
 #---------------------------------------------------------------------------
-# API get UI last version
-#---------------------------------------------------------------------------@name_space.route('/lambdas/<string:runner>/<string:lambdaname>')
-@name_space.route('/getLastVersion')
-@api.doc(description="Get UI version from env.")
-class lambdasRest(Resource):
-#    @token_required("A1","A2")
-    def get(self): 
-        global line_num
-        logger.info("getting UI Version at line: "+str(line_num))
-        line_num, localuiversion = get_ui_version(line_num)
-        return {'error':"",'status':'ok','version':VERSION,'uiversion':localuiversion}
-
-
-
-#---------------------------------------------------------------------------
-# API get UI last version
+# API get Client from ENV
 #---------------------------------------------------------------------------@name_space.route('/lambdas/<string:runner>/<string:lambdaname>')
 @name_space.route('/getClient')
 @api.doc(description="Get Client from env.")
