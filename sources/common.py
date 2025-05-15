@@ -306,8 +306,8 @@ def loadData(es,conn,index,data,doc_type,download,cui,is_rest_api,user,outputfor
         for key in mappings:
             if "mappings" in mappings[key]:
                 for typ in mappings[key]["mappings"]:                    
-                    if "properties" in mappings[key]["mappings"][typ]:
-                        cols=mappings[key]["mappings"][typ]["properties"]
+                    if typ == "properties":
+                        cols=mappings[key]["mappings"]["properties"]
                         cols=list(filter(lambda x:True if cols[x].get("type","NA")=="date" else False,[_ for _ in cols]))
                         cols=set(cols)
                     break
