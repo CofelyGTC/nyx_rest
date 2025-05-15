@@ -356,6 +356,16 @@ def loadData(es,conn,index,data,doc_type,download,cui,is_rest_api,user,outputfor
     logger.info(df.columns)
 
     if outputformat=="xlsx":
+        for col in df.columns:
+            if df[col].dtype == 'object' or pd.api.types.is_datetime64_any_dtype(df[col]):
+                try:
+                    # Convertir en datetime
+                    df[col] = pd.to_datetime(df[col], errors='ignore')
+                    # Supprimer le timezone si présent
+                    if pd.api.types.is_datetime64tz_dtype(df[col]):
+                        df[col] = df[col].dt.tz_localize(None)
+                except Exception:
+                    pass 
         writer = pd.ExcelWriter(OUTPUT_FOLDER+outputname, engine='xlsxwriter',options={'remove_timezone': True})   
         df.to_excel(writer, sheet_name=index.replace("*",""),index=False)
         worksheet = writer.sheets[index.replace("*","")]  # pull worksheet object
