@@ -8,6 +8,8 @@ import traceback
 import pandas as pd
 from datetime import datetime
 from datetime import timedelta
+from zoneinfo import ZoneInfo
+from tzlocal import get_localzone_name
 
 from cachetools import cached, LRUCache, TTLCache
 
@@ -317,7 +319,7 @@ def loadData(es,conn,index,data,doc_type,download,cui,is_rest_api,user,outputfor
         
     logger.info("Apply timesttings")    
     if len(cols)>0:
-        containertimezone = pytz.timezone(tzlocal.get_localzone())
+        containertimezone = ZoneInfo(get_localzone_name())
         for col in df.columns:
             if col in cols:
                 logger.info("Must convert date:"+col)
