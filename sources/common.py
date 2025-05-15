@@ -302,6 +302,7 @@ def loadData(es,conn,index,data,doc_type,download,cui,is_rest_api,user,outputfor
     cols=set([])
     try:
         mappings=es.indices.get_mapping(index=index)
+        logger.info(mappings)
         for key in mappings:
             if "mappings" in mappings[key]:
                 for typ in mappings[key]["mappings"]:                    
@@ -314,8 +315,9 @@ def loadData(es,conn,index,data,doc_type,download,cui,is_rest_api,user,outputfor
     except:
         logger.error("Unable to convert column.",exc_info=True)
         
+    logger.info("Apply timesttings")    
     if len(cols)>0:
-        containertimezone = pytz.timezone(tzlocal.get_localzone().zone)
+        containertimezone = pytz.timezone(tzlocal.get_localzone())
         for col in df.columns:
             if col in cols:
                 logger.info("Must convert date:"+col)
