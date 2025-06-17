@@ -600,7 +600,7 @@ def put_default_values_kpi600_monthly(es, entities, month):
     start_dt = start_dt.replace(tzinfo=local_timezone)
     logger.info(start_dt)
     logger.info("Step 4")
-    df_kpi600['@timestamp'] = start_dt
+    df_kpi600['@timestamp'] = start_dt.timestamp()*1000
     df_kpi600['kpi601'] = True
     df_kpi600['kpi602'] = True
     df_kpi600['kpi603'] = True
@@ -609,7 +609,7 @@ def put_default_values_kpi600_monthly(es, entities, month):
     logger.info(df_kpi600)
     df_kpi600['_id'] = df_kpi600.apply(lambda row: str(row['lot'])+'_'+
                                        row['kpi600_technic'].replace('/','').replace(' ','').lower()+'_'+
-                                       str(int(row['@timestamp'].timestamp()*1000)), axis=1)
+                                       str(int(row['@timestamp'])), axis=1)
     
     bulkbody=''
     for index, row in df_kpi600.iterrows():
@@ -637,7 +637,7 @@ def put_default_values_kpi600_monthly(es, entities, month):
 
     bulkbody
 
-    bulkres = es.bulk(bulkbody, request_timeout=30)
+    bulkres = es.bulk(body=bulkbody, request_timeout=30)
 
 def get_kpi600_value(es, lot, kpi600_technic, month):
     start_dt = mkFirstOfMonth(month)
