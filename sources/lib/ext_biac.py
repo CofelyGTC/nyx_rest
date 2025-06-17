@@ -573,9 +573,11 @@ def getTechnicsKPIByPriv(entities, privileges = [], kpi='600'):
     return ret_technics
 
 def put_default_values_kpi600_monthly(es, entities, month):
+    logger.info("===>Put default KPI600<=====")
+    print("--->Put default KPI600<----")
     entities_model = determine_model_600()
     arr = []
-
+    logger.info("Step 1")
     for i in entities_model:
         obj = {
             'lot' : i
@@ -585,20 +587,21 @@ def put_default_values_kpi600_monthly(es, entities, month):
             obj['kpi600_technic'] = j
 
             arr.append(obj.copy())
-
+    logger.info("Step 2")
     df_kpi600 = pd.DataFrame(arr)
-    df_kpi600
+    logger.info(df_kpi600)
 
     start_dt = mkFirstOfMonth(month)
     local_timezone = tzlocal.get_localzone()
-
+    logger.info("Step 3")
     start_dt = local_timezone.localize(start_dt)
-
+    logger.info("Step 4")
     df_kpi600['@timestamp'] = start_dt
     df_kpi600['kpi601'] = True
     df_kpi600['kpi602'] = True
     df_kpi600['kpi603'] = True
     df_kpi600['cancel_by_customer'] = False
+    logger.info("Step 5")
     df_kpi600['_id'] = df_kpi600.apply(lambda row: str(row['lot'])+'_'+
                                        row['kpi600_technic'].replace('/','').replace(' ','').lower()+'_'+
                                        str(int(row['@timestamp'].timestamp()*1000)), axis=1)
