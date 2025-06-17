@@ -593,9 +593,12 @@ def put_default_values_kpi600_monthly(es, entities, month):
     logger.info(df_kpi600)
 
     start_dt = mkFirstOfMonth(month)
+    logger.info(start_dt)
     local_timezone = tzlocal.get_localzone()
     logger.info("Step 3")
-    start_dt = local_timezone.localize(start_dt)
+    #start_dt = local_timezone.localize(start_dt)
+    start_dt = start_dt.replace(tzinfo=local_timezone)
+    logger.info(start_dt)
     logger.info("Step 4")
     df_kpi600['@timestamp'] = start_dt
     df_kpi600['kpi601'] = True
