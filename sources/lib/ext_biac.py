@@ -574,6 +574,7 @@ def getTechnicsKPIByPriv(entities, privileges = [], kpi='600'):
 
 def put_default_values_kpi600_monthly(es, entities, month):
     logger.info("===>Put default KPI600<=====")
+    logger.info(month)
     print("--->Put default KPI600<----")
     entities_model = determine_model_600()
     arr = []
@@ -602,6 +603,7 @@ def put_default_values_kpi600_monthly(es, entities, month):
     df_kpi600['kpi603'] = True
     df_kpi600['cancel_by_customer'] = False
     logger.info("Step 5")
+    logger.info(df_kpi600)
     df_kpi600['_id'] = df_kpi600.apply(lambda row: str(row['lot'])+'_'+
                                        row['kpi600_technic'].replace('/','').replace(' ','').lower()+'_'+
                                        str(int(row['@timestamp'].timestamp()*1000)), axis=1)
