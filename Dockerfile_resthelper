@@ -1,0 +1,18 @@
+FROM python:3.12.10-slim
+MAINTAINER snuids
+
+RUN apt-get update && apt-get upgrade -y
+RUN apt-get install -y vim
+RUN apt-get update && apt-get install -y libpq-dev
+
+
+COPY ./sources/requirements_resthelper.txt /opt/sources/requirements.txt
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install -r /opt/sources/requirements.txt
+
+COPY ./sources /opt/sources
+RUN mkdir  /opt/sources/logs
+
+WORKDIR /opt/sources
+
+CMD ["python", "nyx_rest_helper.py"]

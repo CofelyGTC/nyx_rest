@@ -1,15 +1,10 @@
 import json
 import time
-import uuid
-import base64
 import smtplib
 import zipfile
-import datetime
 import psycopg2
 import threading
-import subprocess 
-import traceback
-import os,logging,sys
+import os,logging
 from email import encoders
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -17,16 +12,14 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 
 from logging.handlers import TimedRotatingFileHandler
-from amqstompclient import amqstompclient
-from datetime import datetime
-from functools import wraps
+import amqstomp as amqstompclient
 from elasticsearch import Elasticsearch as ES
 from logstash_async.handler import AsynchronousLogstashHandler
 
 from common import loadData ,kibanaData
 from pg_common import loadPGData
 
-VERSION="0.1.1"
+VERSION="1.0.0"
 MODULE="NYX_Helper"
 QUEUE=["/queue/REST_LOAD_DATA","/queue/REST_LOAD_PGDATA","/queue/REST_LOAD_KIBANA"]
 
@@ -259,7 +252,7 @@ logger.info (os.environ["ELK_SSL"])
 
 if os.environ["ELK_SSL"]=="true":
     host_params = {'host':os.environ["ELK_URL"], 'port':int(os.environ["ELK_PORT"]), 'use_ssl':True}
-    es = ES([host_params], connection_class=RC, http_auth=(os.environ["ELK_LOGIN"], os.environ["ELK_PASSWORD"]),  use_ssl=True ,verify_certs=False)
+    es = ES([host_params], http_auth=(os.environ["ELK_LOGIN"], os.environ["ELK_PASSWORD"]),  use_ssl=True ,verify_certs=False)
 else:
     host_params="http://"+os.environ["ELK_URL"]+":"+os.environ["ELK_PORT"]
     es = ES(hosts=[host_params])
