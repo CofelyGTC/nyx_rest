@@ -49,7 +49,7 @@ from common import loadData,kibanaData,getELKVersion,get_es_info #,applyPrivileg
 from elasticsearch import Elasticsearch as ES
 
 import dotenv, linecache
-dotenv.load_dotenv()
+dotenv.load_dotenv(override=True)
 
 VERSION=os.getenv("VERSION","0.0.0")
 MODULE="nyx_rest"+"_"+str(os.getpid())

@@ -15,23 +15,29 @@ from cachetools import cached, LRUCache, TTLCache
 
 
 @cached(cache=TTLCache(maxsize=1024, ttl=300))
-def get_mappings(es,index):
-    finalmaps={}
+def get_mappings(es, index):
+    finalmaps = {}
 
-    maps=es.indices.get_mapping(index=index)
-    if "properties" in maps[list(maps)[0]]["mappings"]:
-        maps2=maps[list(maps)[0]]["mappings"]["properties"]
-        for field in maps2:
-            if "type" in maps2[field]:
-                finalmaps[field]=maps2[field]["type"]
-        
+    def extract_fields(properties, prefix=""):
+        for field, field_info in properties.items():
+            full_field = f"{prefix}.{field}" if prefix else field
+            if "type" in field_info:
+                finalmaps[full_field] = field_info["type"]
+                # Ajouter aussi le champ .keyword si présent
+                if field_info["type"] == "text" and "fields" in field_info and "keyword" in field_info["fields"]:
+                    finalmaps[f"{full_field}.keyword"] = "keyword"
+            elif "properties" in field_info:
+                extract_fields(field_info["properties"], full_field)
+
+    mappings = es.indices.get_mapping(index=index)
+    index_name = list(mappings)[0]
+    if "properties" in mappings[index_name]["mappings"]:
+        props = mappings[index_name]["mappings"]["properties"]
     else:
-        doc_type=list(maps[list(maps)[0]]["mappings"])[0]
-        maps2=maps[list(maps)[0]]["mappings"][doc_type]["properties"]
-        maps2
-        for field in maps2:
-            if "type" in maps2[field]:
-                finalmaps[field]=maps2[field]["type"]
+        doc_type = list(mappings[index_name]["mappings"])[0]
+        props = mappings[index_name]["mappings"][doc_type]["properties"]
+
+    extract_fields(props)
     return finalmaps
 
 @cached(cache=TTLCache(maxsize=1024, ttl=300))
@@ -163,7 +169,9 @@ def loadData(es,conn,index,data,doc_type,download,cui,is_rest_api,user,outputfor
     if "sort" in data:
         for dat in data["sort"]:
             key=list(dat)[0]
+            print('key: ', key)
             mht=get_mappings(es,index)
+            print('mht: ', mht)
             if key in mht and mht[key]=="text":
                 dat[key+".keyword"]=dat[key]
                 del dat[key]
