@@ -143,6 +143,9 @@ def config(api,conn,es,redis,token_required):
             disk=req.get("disk",{})
             version=req.get("version","NA")
             starttime=req.get("starttime","")
+            browser_name=req.get("browser_name","")
+            browser_version=req.get("browser_version","")
+            starttime=req.get("starttime","")
             logger.info("===>"+guid+"<===")
             
             if redis.get("optiboard_"+guid)==None:
@@ -167,6 +170,8 @@ def config(api,conn,es,redis,token_required):
             redoptiobj["disk"]=disk
             redoptiobj["@timestamp"]=arrow.utcnow().isoformat().replace("+00:00", "Z")
             redoptiobj["station"]=redoptiobj["optiboard"]
+            redoptiobj["browser_name"]=browser_name
+            redoptiobj["browser_version"]=browser_version
 
             index='optiboard_status-'+datetime.datetime.now().strftime('%Y.%m')
             es.index(index=index,document=redoptiobj)            
