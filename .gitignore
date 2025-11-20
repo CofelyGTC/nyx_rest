@@ -112,7 +112,8 @@ sources/startrest.sh
 sources/starthelper.sh
 sources/startrestgunicorn.sh
 sources/startrest2.sh
-.vscode/settings.json
+.vscode*
+.vscode/
 
 #google auth
 sources/client_secret_*.json
