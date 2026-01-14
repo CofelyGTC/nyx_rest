@@ -224,7 +224,7 @@ def loadData(es,conn,index,data,doc_type,download,cui,is_rest_api,user,outputfor
             if "aggregations" in response:
                 aggs=response["aggregations"]
 
-            if len(hits)>=maxsize and is_rest_api:
+            if len(hits)>=total and is_rest_api:
                 break
 
             #print([item["_id"] for item in response["hits"]["hits"]])
